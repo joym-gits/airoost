@@ -1,43 +1,53 @@
-import { useOllamaStore } from '../store/ollamaStore'
+import { useAppStore } from '../store/ollamaStore'
+import { useEffect } from 'react'
 
 export default function SettingsPage() {
-  const { isOllamaRunning, checkConnection } = useOllamaStore()
+  const { installedModels, fetchInstalled } = useAppStore()
+
+  useEffect(() => {
+    fetchInstalled()
+  }, [fetchInstalled])
 
   return (
     <div className="p-8 max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-2">Settings</h1>
       <p className="text-sm text-gray-500 mb-8">Configure Airoost preferences</p>
 
-      {/* Ollama Connection */}
+      {/* Engine info */}
       <section className="mb-8">
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-          Ollama Connection
+          AI Engine
         </h2>
         <div className="p-4 rounded-xl bg-surface border border-white/5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-white text-sm font-medium">Ollama Server</p>
-              <p className="text-xs text-gray-500 mt-1">http://localhost:11434</p>
+              <p className="text-white text-sm font-medium">Built-in Engine</p>
+              <p className="text-xs text-gray-500 mt-1">Powered by llama.cpp (node-llama-cpp)</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isOllamaRunning ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                />
-                <span className="text-xs text-gray-400">
-                  {isOllamaRunning ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              <button
-                onClick={checkConnection}
-                className="px-3 py-1.5 text-xs bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 transition-colors"
-              >
-                Test
-              </button>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span className="text-xs text-gray-400">Active</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Models */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          Installed Models
+        </h2>
+        <div className="p-4 rounded-xl bg-surface border border-white/5 space-y-2">
+          {installedModels.length === 0 ? (
+            <p className="text-sm text-gray-500">No models installed</p>
+          ) : (
+            installedModels.map((m) => (
+              <div key={m.id} className="flex justify-between text-sm">
+                <span className="text-gray-400">{m.name}</span>
+                <span className="text-white">{(m.size / 1e9).toFixed(1)} GB</span>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -56,8 +66,8 @@ export default function SettingsPage() {
             <span className="text-white">Electron + React</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Backend</span>
-            <span className="text-white">Ollama</span>
+            <span className="text-gray-500">AI Engine</span>
+            <span className="text-white">llama.cpp (built-in)</span>
           </div>
         </div>
       </section>

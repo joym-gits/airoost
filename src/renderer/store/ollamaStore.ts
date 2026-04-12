@@ -1,55 +1,112 @@
 import { create } from 'zustand'
-import * as ollama from '../services/ollamaService'
-import type { OllamaModel, ChatMessage } from '../../shared/types'
 
-interface OllamaState {
-  isOllamaRunning: boolean
-  models: OllamaModel[]
-  pullingModel: string | null
-  pullStatus: string
-  pullProgress: number
+interface AppState {
+  // Models
+  catalog: CatalogModel[]
+  installedModels: InstalledModel[]
+  downloadingModel: string | null
+  downloadProgress: number
+  downloadStatus: string
 
-  checkConnection: () => Promise<void>
-  fetchModels: () => Promise<void>
-  pullModel: (name: string) => Promise<void>
-  sendMessage: (model: string, messages: ChatMessage[]) => Promise<string>
+  // Chat
+  selectedModelPath: string | null
+  isGenerating: boolean
+  streamingText: string
+
+  // Actions
+  fetchCatalog: () => Promise<void>
+  fetchInstalled: () => Promise<void>
+  downloadModel: (modelId: string) => Promise<void>
+  deleteModel: (modelId: string) => Promise<void>
+  sendMessage: (modelPath: string, message: string) => Promise<string>
+  resetChat: () => Promise<void>
+  setSelectedModel: (path: string) => void
 }
 
-export const useOllamaStore = create<OllamaState>((set) => ({
-  isOllamaRunning: false,
-  models: [],
-  pullingModel: null,
-  pullStatus: '',
-  pullProgress: 0,
+export const useAppStore = create<AppState>((set, get) => ({
+  catalog: [],
+  installedModels: [],
+  downloadingModel: null,
+  downloadProgress: 0,
+  downloadStatus: '',
 
-  checkConnection: async () => {
-    const running = await ollama.checkOllamaRunning()
-    set({ isOllamaRunning: running })
+  selectedModelPath: null,
+  isGenerating: false,
+  streamingText: '',
+
+  fetchCatalog: async () => {
+    const catalog = await window.airoost.getCatalog()
+    set({ catalog })
   },
 
-  fetchModels: async () => {
-    try {
-      const models = await ollama.listModels()
-      set({ models })
-    } catch {
-      set({ models: [] })
+  fetchInstalled: async () => {
+    const installedModels = await window.airoost.getInstalled()
+    set({ installedModels })
+    // Auto-select first model if none selected
+    if (!get().selectedModelPath && installedModels.length > 0) {
+      set({ selectedModelPath: installedModels[0].path })
     }
   },
 
-  pullModel: async (name: string) => {
-    set({ pullingModel: name, pullStatus: 'Starting download...', pullProgress: 0 })
+  downloadModel: async (modelId: string) => {
+    set({ downloadingModel: modelId, downloadProgress: 0, downloadStatus: 'Starting download...' })
+
+    const cleanup = window.airoost.onDownloadProgress(({ modelId: id, percent, status }) => {
+      if (id === modelId) {
+        set({ downloadProgress: percent, downloadStatus: status })
+      }
+    })
+
     try {
-      await ollama.pullModel(name, (status, progress) => {
-        set({ pullStatus: status, pullProgress: progress })
+      await window.airoost.downloadModel(modelId)
+      // Refresh lists
+      const catalog = await window.airoost.getCatalog()
+      const installedModels = await window.airoost.getInstalled()
+      set({
+        catalog,
+        installedModels,
+        downloadingModel: null,
+        downloadProgress: 100,
+        downloadStatus: 'Complete!'
       })
-      const models = await ollama.listModels()
-      set({ models, pullingModel: null, pullStatus: '', pullProgress: 0 })
+      if (!get().selectedModelPath && installedModels.length > 0) {
+        set({ selectedModelPath: installedModels[0].path })
+      }
     } catch {
-      set({ pullingModel: null, pullStatus: 'Download failed', pullProgress: 0 })
+      set({ downloadingModel: null, downloadStatus: 'Download failed' })
+    } finally {
+      cleanup()
     }
   },
 
-  sendMessage: async (model: string, messages: ChatMessage[]) => {
-    return ollama.chat(model, messages)
+  deleteModel: async (modelId: string) => {
+    await window.airoost.deleteModel(modelId)
+    const catalog = await window.airoost.getCatalog()
+    const installedModels = await window.airoost.getInstalled()
+    set({ catalog, installedModels })
+  },
+
+  sendMessage: async (modelPath: string, message: string) => {
+    set({ isGenerating: true, streamingText: '' })
+
+    const cleanup = window.airoost.onChatToken(({ partial }) => {
+      set({ streamingText: partial })
+    })
+
+    try {
+      const response = await window.airoost.chat(modelPath, message)
+      return response
+    } finally {
+      cleanup()
+      set({ isGenerating: false, streamingText: '' })
+    }
+  },
+
+  resetChat: async () => {
+    await window.airoost.resetChat()
+  },
+
+  setSelectedModel: (path: string) => {
+    set({ selectedModelPath: path })
   }
 }))
