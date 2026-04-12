@@ -32,7 +32,7 @@ export async function listModels(): Promise<OllamaModel[]> {
  */
 export async function pullModel(
   name: string,
-  onProgress?: (status: string) => void
+  onProgress?: (status: string, percent: number) => void
 ): Promise<void> {
   const res = await fetch(`${OLLAMA_BASE_URL}${OLLAMA_ENDPOINTS.PULL}`, {
     method: 'POST',
@@ -53,7 +53,11 @@ export async function pullModel(
     for (const line of text.split('\n').filter(Boolean)) {
       try {
         const data = JSON.parse(line)
-        onProgress?.(data.status ?? '')
+        let percent = 0
+        if (data.total && data.completed) {
+          percent = Math.round((data.completed / data.total) * 100)
+        }
+        onProgress?.(data.status ?? '', percent)
       } catch {
         // skip malformed lines
       }

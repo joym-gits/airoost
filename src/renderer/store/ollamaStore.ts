@@ -6,6 +6,8 @@ interface OllamaState {
   isOllamaRunning: boolean
   models: OllamaModel[]
   pullingModel: string | null
+  pullStatus: string
+  pullProgress: number
 
   checkConnection: () => Promise<void>
   fetchModels: () => Promise<void>
@@ -17,6 +19,8 @@ export const useOllamaStore = create<OllamaState>((set) => ({
   isOllamaRunning: false,
   models: [],
   pullingModel: null,
+  pullStatus: '',
+  pullProgress: 0,
 
   checkConnection: async () => {
     const running = await ollama.checkOllamaRunning()
@@ -33,14 +37,15 @@ export const useOllamaStore = create<OllamaState>((set) => ({
   },
 
   pullModel: async (name: string) => {
-    set({ pullingModel: name })
+    set({ pullingModel: name, pullStatus: 'Starting download...', pullProgress: 0 })
     try {
-      await ollama.pullModel(name)
-      // Refresh model list after pull
+      await ollama.pullModel(name, (status, progress) => {
+        set({ pullStatus: status, pullProgress: progress })
+      })
       const models = await ollama.listModels()
-      set({ models, pullingModel: null })
+      set({ models, pullingModel: null, pullStatus: '', pullProgress: 0 })
     } catch {
-      set({ pullingModel: null })
+      set({ pullingModel: null, pullStatus: 'Download failed', pullProgress: 0 })
     }
   },
 

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useOllamaStore } from '../store/ollamaStore'
 
 export default function ModelLibraryPage() {
-  const { models, isOllamaRunning, fetchModels, pullModel, pullingModel } = useOllamaStore()
+  const { models, isOllamaRunning, fetchModels, pullModel, pullingModel, pullStatus, pullProgress } = useOllamaStore()
 
   useEffect(() => {
     if (isOllamaRunning) {
@@ -44,6 +44,23 @@ export default function ModelLibraryPage() {
               </button>
             ))}
           </div>
+
+          {/* Download progress */}
+          {pullingModel && (
+            <div className="mt-8 max-w-md mx-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-white font-medium">Downloading {pullingModel}</span>
+                <span className="text-sm text-gray-400">{pullProgress}%</span>
+              </div>
+              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-300"
+                  style={{ width: `${pullProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">{pullStatus}</p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-3">

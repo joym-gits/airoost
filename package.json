@@ -2,7 +2,8 @@
   "name": "airoost",
   "version": "0.1.0",
   "description": "VLC for AI models — download and run open-source AI models locally with zero setup",
-  "main": "dist-electron/main/index.js",
+  "type": "module",
+  "main": "out/main/index.js",
   "author": "joym-gits",
   "license": "MIT",
   "scripts": {
@@ -12,6 +13,8 @@
     "package": "electron-vite build && electron-builder"
   },
   "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
     "axios": "^1.7.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
