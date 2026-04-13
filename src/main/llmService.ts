@@ -1,48 +1,232 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream } from 'fs'
-import { createRequire } from 'module'
+import { execSync } from 'child_process'
+import os from 'os'
 import https from 'https'
 import http from 'http'
 
-// Dynamic require to prevent Vite from bundling node-llama-cpp
-const _require = createRequire(import.meta.url)
-const modulePath = 'node-llama-cpp'
-function loadNodeLlamaCpp() {
-  return _require(modulePath)
+// Dynamic import hidden from Vite's static analysis
+let _llamaCppModule: any = null
+async function loadNodeLlamaCpp() {
+  if (!_llamaCppModule) {
+    const mod = ['node', 'llama', 'cpp'].join('-')
+    _llamaCppModule = await (Function('m', 'return import(m)')(mod))
+  }
+  return _llamaCppModule
 }
 
 const MODELS_DIR = join(app.getPath('userData'), 'models')
 
-export const MODEL_CATALOG = [
+// ─── Model Catalog ───────────────────────────────────────────────
+
+export interface CatalogEntry {
+  id: string
+  name: string
+  description: string
+  size: string
+  sizeBytes: number
+  ramRequired: number // minimum RAM in GB
+  url: string
+  filename: string
+  category: string[]
+  featured: boolean
+  author: string
+  badge: 'verified' | 'community'
+  bundled?: boolean
+}
+
+export const MODEL_CATALOG: CatalogEntry[] = [
+  // ── Bundled Default ──
   {
-    id: 'smollm2-360m',
-    name: 'SmolLM2 360M',
-    description: 'Tiny & fast, great for testing — 360M params',
-    size: '229 MB',
-    sizeBytes: 240_000_000,
-    url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf',
-    filename: 'smollm2-360m-instruct-q8_0.gguf'
+    id: 'phi-3-mini',
+    name: 'Phi-3 Mini',
+    description: 'Microsoft\'s compact powerhouse. Ships with Airoost — ready instantly.',
+    size: '2.2 GB',
+    sizeBytes: 2_300_000_000,
+    ramRequired: 4,
+    url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
+    filename: 'Phi-3-mini-4k-instruct-q4.gguf',
+    category: ['general', 'lightweight'],
+    featured: true,
+    author: 'Microsoft',
+    badge: 'verified',
+    bundled: true
+  },
+  // ── Featured Models ──
+  {
+    id: 'llama-3.2-3b',
+    name: 'Llama 3.2 3B',
+    description: 'Meta\'s latest small model. Great all-rounder for everyday use.',
+    size: '2.0 GB',
+    sizeBytes: 2_000_000_000,
+    ramRequired: 4,
+    url: 'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+    filename: 'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
+    category: ['general', 'featured'],
+    featured: true,
+    author: 'Meta',
+    badge: 'verified'
   },
   {
-    id: 'smollm2-1.7b',
-    name: 'SmolLM2 1.7B',
-    description: 'Small but capable — 1.7B params',
-    size: '1.0 GB',
-    sizeBytes: 1_060_000_000,
-    url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/resolve/main/smollm2-1.7b-instruct-q4_k_m.gguf',
-    filename: 'smollm2-1.7b-instruct-q4_k_m.gguf'
+    id: 'mistral-7b',
+    name: 'Mistral 7B',
+    description: 'Excellent reasoning and instruction following. The community favorite.',
+    size: '4.1 GB',
+    sizeBytes: 4_100_000_000,
+    ramRequired: 8,
+    url: 'https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf',
+    filename: 'mistral-7b-instruct-v0.2.Q4_K_M.gguf',
+    category: ['general', 'featured'],
+    featured: true,
+    author: 'Mistral AI',
+    badge: 'verified'
+  },
+  {
+    id: 'gemma-2-2b',
+    name: 'Gemma 2 2B',
+    description: 'Google\'s efficient model. Fast and surprisingly capable for its size.',
+    size: '1.6 GB',
+    sizeBytes: 1_600_000_000,
+    ramRequired: 4,
+    url: 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf',
+    filename: 'gemma-2-2b-it-Q4_K_M.gguf',
+    category: ['general', 'lightweight', 'featured'],
+    featured: true,
+    author: 'Google',
+    badge: 'verified'
+  },
+  {
+    id: 'codellama-7b',
+    name: 'Code Llama 7B',
+    description: 'Purpose-built for code generation, debugging, and explanation.',
+    size: '3.8 GB',
+    sizeBytes: 3_800_000_000,
+    ramRequired: 8,
+    url: 'https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q4_K_M.gguf',
+    filename: 'codellama-7b-instruct.Q4_K_M.gguf',
+    category: ['coding', 'featured'],
+    featured: true,
+    author: 'Meta',
+    badge: 'verified'
   },
   {
     id: 'llama-3.2-1b',
     name: 'Llama 3.2 1B',
-    description: "Meta's compact model — 1B params",
+    description: 'Ultra-light. Runs on anything. Perfect for low-end hardware.',
     size: '750 MB',
     sizeBytes: 750_000_000,
+    ramRequired: 2,
     url: 'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-    filename: 'Llama-3.2-1B-Instruct-Q4_K_M.gguf'
+    filename: 'Llama-3.2-1B-Instruct-Q4_K_M.gguf',
+    category: ['general', 'lightweight'],
+    featured: true,
+    author: 'Meta',
+    badge: 'verified'
+  },
+  {
+    id: 'smollm2-360m',
+    name: 'SmolLM2 360M',
+    description: 'Tiny model for basic tasks. Fits on any machine.',
+    size: '229 MB',
+    sizeBytes: 240_000_000,
+    ramRequired: 2,
+    url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf',
+    filename: 'smollm2-360m-instruct-q8_0.gguf',
+    category: ['lightweight'],
+    featured: false,
+    author: 'Hugging Face',
+    badge: 'verified'
   }
 ]
+
+// ─── Hardware Detection ──────────────────────────────────────────
+
+export interface HardwareInfo {
+  totalRamGB: number
+  availableRamGB: number
+  cpuModel: string
+  cpuCores: number
+  gpuName: string
+  gpuVramGB: number
+  diskFreeGB: number
+  platform: string
+  arch: string
+}
+
+export function detectHardware(): HardwareInfo {
+  const totalRamGB = Math.round(os.totalmem() / 1e9 * 10) / 10
+  const availableRamGB = Math.round(os.freemem() / 1e9 * 10) / 10
+  const cpuModel = os.cpus()[0]?.model ?? 'Unknown'
+  const cpuCores = os.cpus().length
+
+  let gpuName = 'Unknown'
+  let gpuVramGB = 0
+
+  try {
+    if (process.platform === 'darwin') {
+      const spOutput = execSync('system_profiler SPDisplaysDataType 2>/dev/null', { encoding: 'utf-8', timeout: 5000 })
+      const gpuMatch = spOutput.match(/Chipset Model:\s*(.+)/i) || spOutput.match(/Chip:\s*(.+)/i)
+      if (gpuMatch) gpuName = gpuMatch[1].trim()
+      const vramMatch = spOutput.match(/VRAM.*?:\s*(\d+)\s*(MB|GB)/i)
+      if (vramMatch) {
+        gpuVramGB = vramMatch[2] === 'GB' ? parseInt(vramMatch[1]) : parseInt(vramMatch[1]) / 1024
+      }
+      // Apple Silicon shares unified memory
+      if (cpuModel.includes('Apple') || gpuName.includes('Apple')) {
+        gpuVramGB = totalRamGB
+      }
+    } else if (process.platform === 'win32') {
+      const wmicOutput = execSync('wmic path win32_VideoController get name,adapterram /format:csv 2>nul', { encoding: 'utf-8', timeout: 5000 })
+      const lines = wmicOutput.split('\n').filter(l => l.trim() && !l.includes('Node'))
+      if (lines.length > 0) {
+        const parts = lines[0].split(',')
+        if (parts.length >= 3) {
+          gpuName = parts[2]?.trim() ?? 'Unknown'
+          gpuVramGB = parseInt(parts[1] ?? '0') / 1e9
+        }
+      }
+    }
+  } catch {
+    // Hardware detection is best-effort
+  }
+
+  let diskFreeGB = 0
+  try {
+    if (process.platform === 'darwin' || process.platform === 'linux') {
+      const dfOutput = execSync("df -g / 2>/dev/null | tail -1 | awk '{print $4}'", { encoding: 'utf-8', timeout: 3000 })
+      diskFreeGB = parseInt(dfOutput.trim()) || 0
+    }
+  } catch {
+    // best-effort
+  }
+
+  return {
+    totalRamGB,
+    availableRamGB,
+    cpuModel,
+    cpuCores,
+    gpuName,
+    gpuVramGB,
+    diskFreeGB,
+    platform: process.platform,
+    arch: process.arch
+  }
+}
+
+export type ModelCompatibility = 'smooth' | 'slow' | 'too-large'
+
+export function checkModelCompatibility(model: CatalogEntry, hw: HardwareInfo): { status: ModelCompatibility; message: string } {
+  if (model.ramRequired > hw.totalRamGB) {
+    return { status: 'too-large', message: 'This model is too large for your current setup' }
+  }
+  if (model.ramRequired > hw.totalRamGB * 0.6) {
+    return { status: 'slow', message: 'This model may run slowly \u2014 your machine has limited memory' }
+  }
+  return { status: 'smooth', message: 'This model runs smoothly on your machine' }
+}
+
+// ─── LLM Engine ──────────────────────────────────────────────────
 
 let llamaInstance: any = null
 let loadedModel: any = null
@@ -58,7 +242,7 @@ function ensureModelsDir(): void {
 
 export async function initLlama(): Promise<void> {
   ensureModelsDir()
-  const { getLlama } = loadNodeLlamaCpp()
+  const { getLlama } = await loadNodeLlamaCpp()
   llamaInstance = await getLlama()
 }
 
@@ -78,12 +262,14 @@ export function getInstalledModels(): { id: string; name: string; size: number; 
   })
 }
 
-export function getCatalog() {
+export function getCatalog(hw?: HardwareInfo) {
   const installed = getInstalledModels()
   const installedFiles = new Set(installed.map((m) => m.path))
+  const hardware = hw ?? detectHardware()
   return MODEL_CATALOG.map((m) => ({
     ...m,
-    installed: installedFiles.has(join(MODELS_DIR, m.filename))
+    installed: installedFiles.has(join(MODELS_DIR, m.filename)),
+    compatibility: checkModelCompatibility(m, hardware)
   }))
 }
 
@@ -111,7 +297,6 @@ export async function downloadModel(
             follow(res.headers.location)
             return
           }
-
           if (res.statusCode !== 200) {
             reject(new Error(`Download failed: HTTP ${res.statusCode}`))
             return
@@ -168,7 +353,7 @@ export async function loadModel(modelPath: string): Promise<void> {
 
   loadedModel = await llamaInstance.loadModel({ modelPath })
   activeContext = await loadedModel.createContext()
-  const { LlamaChatSession } = loadNodeLlamaCpp()
+  const { LlamaChatSession } = await loadNodeLlamaCpp()
   activeSession = new LlamaChatSession({ contextSequence: activeContext.getSequence() })
   loadedModelPath = modelPath
 }
@@ -203,7 +388,11 @@ export async function chat(
 
 export async function resetChat(): Promise<void> {
   if (activeContext && loadedModel) {
-    const { LlamaChatSession } = loadNodeLlamaCpp()
+    const { LlamaChatSession } = await loadNodeLlamaCpp()
     activeSession = new LlamaChatSession({ contextSequence: activeContext.getSequence() })
   }
+}
+
+export function getModelsDir(): string {
+  return MODELS_DIR
 }

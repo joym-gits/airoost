@@ -1,35 +1,38 @@
 # Airoost
 
-**VLC for AI models** — download and run open-source AI models locally with zero setup.
+**The VLC of AI.** Run any AI model on your computer. No internet. No account. No data leaving your machine.
 
-Airoost is a cross-platform desktop application that lets non-technical users browse, download, and chat with open-source AI models (Llama, Mistral, Gemma, Phi, and more) on their own machine. No CLI, no terminal, no configuration — just install and go.
+## What is Airoost?
+
+Airoost is a cross-platform desktop application that lets anyone — technical or not — run open-source AI models locally. Chat is open and working within 60 seconds of installation.
+
+**Three principles:**
+1. **It just works** — Open it, use it. No setup required.
+2. **Your machine, your data** — Every inference happens locally. Nothing is transmitted.
+3. **Open everything** — Every open-source model ever published is accessible.
 
 ## Features
 
-- Browse and download open-source AI models with one click
-- Chat with any installed model in a clean, intuitive interface
-- Runs entirely on your machine — your data never leaves your computer
-- Powered by [Ollama](https://ollama.com) under the hood
-- Cross-platform: Windows, macOS, Linux
+- **Instant Chat** — Bundled model (Phi-3 Mini) works out of the box
+- **Model Library** — Featured models, categories, and Hugging Face explorer
+- **Hardware Intelligence** — Automatically detects your hardware and recommends compatible models
+- **Multi-session Chat** — Multiple conversations, each saved locally
+- **Streaming Responses** — Text appears word by word
+- **Copy & Regenerate** — One-click response actions
+- **Document Chat** — Drop a PDF/Word file, chat with it (coming soon)
+- **Voice Mode** — Offline speech-to-text conversation (coming soon)
+- **Local API Server** — OpenAI-compatible localhost endpoint (coming soon)
+- **Cross-platform** — Windows, macOS, Linux
 
 ## Tech Stack
 
-- **Desktop runtime:** Electron
+- **Runtime:** Electron
 - **Frontend:** React + TypeScript + Tailwind CSS
-- **Build tool:** Vite (electron-vite)
-- **State management:** Zustand
-- **Backend:** Ollama (local model server)
-- **Packaging:** electron-builder
+- **AI Engine:** llama.cpp via node-llama-cpp (built-in, no Ollama needed)
+- **Build:** electron-vite
+- **State:** Zustand
 
 ## Getting Started
-
-### Prerequisites
-
-1. Install [Node.js](https://nodejs.org/) (v18+)
-2. Install [Ollama](https://ollama.com/download)
-3. Start Ollama: `ollama serve`
-
-### Development
 
 ```bash
 git clone https://github.com/joym-gits/airoost.git
@@ -38,11 +41,9 @@ npm install
 npm run dev
 ```
 
-### Build
+## Tagline
 
-```bash
-npm run build        # Build for current platform
-```
+*Your AI. Your machine. Your rules.*
 
 ## License
 

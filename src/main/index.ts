@@ -8,7 +8,9 @@ import {
   downloadModel,
   deleteModel,
   chat,
-  resetChat
+  resetChat,
+  detectHardware,
+  getModelsDir
 } from './llmService'
 
 function createWindow(): void {
@@ -19,8 +21,9 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     title: 'Airoost',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f0f23',
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -43,15 +46,12 @@ function createWindow(): void {
   }
 }
 
-// --- IPC Handlers ---
+// ─── IPC Handlers ─────────────────────────────────────────────────
 
-ipcMain.handle('llm:get-catalog', () => {
-  return getCatalog()
-})
-
-ipcMain.handle('llm:get-installed', () => {
-  return getInstalledModels()
-})
+// Models
+ipcMain.handle('llm:get-catalog', () => getCatalog())
+ipcMain.handle('llm:get-installed', () => getInstalledModels())
+ipcMain.handle('llm:get-models-dir', () => getModelsDir())
 
 ipcMain.handle('llm:download-model', (event, modelId: string) => {
   return downloadModel(modelId, (percent, status) => {
@@ -59,10 +59,9 @@ ipcMain.handle('llm:download-model', (event, modelId: string) => {
   })
 })
 
-ipcMain.handle('llm:delete-model', (_event, modelId: string) => {
-  return deleteModel(modelId)
-})
+ipcMain.handle('llm:delete-model', (_event, modelId: string) => deleteModel(modelId))
 
+// Chat
 ipcMain.handle('llm:chat', async (event, modelPath: string, message: string) => {
   let full = ''
   const response = await chat(modelPath, message, (token) => {
@@ -72,11 +71,12 @@ ipcMain.handle('llm:chat', async (event, modelPath: string, message: string) => 
   return response
 })
 
-ipcMain.handle('llm:reset-chat', () => {
-  return resetChat()
-})
+ipcMain.handle('llm:reset-chat', () => resetChat())
 
-// --- App Lifecycle ---
+// Hardware
+ipcMain.handle('hw:detect', () => detectHardware())
+
+// ─── App Lifecycle ────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   await initLlama()

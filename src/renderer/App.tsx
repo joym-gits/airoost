@@ -1,28 +1,33 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import Sidebar from './components/Sidebar'
-import HomePage from './pages/HomePage'
-import ModelLibraryPage from './pages/ModelLibraryPage'
 import ChatPage from './pages/ChatPage'
+import ModelLibraryPage from './pages/ModelLibraryPage'
 import SettingsPage from './pages/SettingsPage'
-import OnboardingPage from './pages/OnboardingPage'
-import { useOnboardingStore } from './store/onboardingStore'
+import DocumentsPage from './pages/DocumentsPage'
+import VoicePage from './pages/VoicePage'
+import { useAppStore } from './store/appStore'
 
 export default function App() {
-  const { isFirstLaunch } = useOnboardingStore()
+  const { fetchInstalled, fetchCatalog, detectHardware } = useAppStore()
 
-  if (isFirstLaunch) {
-    return <OnboardingPage />
-  }
+  useEffect(() => {
+    fetchInstalled()
+    fetchCatalog()
+    detectHardware()
+  }, [fetchInstalled, fetchCatalog, detectHardware])
 
   return (
     <div className="flex h-screen bg-surface-dark">
       <Sidebar />
       <main className="flex-1 overflow-auto">
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<ChatPage />} />
           <Route path="/models" element={<ModelLibraryPage />} />
-          <Route path="/chat" element={<ChatPage />} />
+          <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/voice" element={<VoicePage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
     </div>

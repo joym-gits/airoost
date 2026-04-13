@@ -1,123 +1,171 @@
 import { useState, useRef, useEffect } from 'react'
-import { useAppStore } from '../store/ollamaStore'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
+import { useNavigate } from 'react-router-dom'
+import { useAppStore } from '../store/appStore'
 
 export default function ChatPage() {
+  const navigate = useNavigate()
   const {
     installedModels,
     selectedModelPath,
+    selectedModelName,
     setSelectedModel,
+    conversations,
+    activeConversationId,
+    createConversation,
     sendMessage,
-    resetChat,
+    regenerateLastResponse,
     isGenerating,
-    streamingText,
-    fetchInstalled
+    streamingText
   } = useAppStore()
 
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    fetchInstalled()
-  }, [fetchInstalled])
+  const activeConvo = conversations.find((c) => c.id === activeConversationId)
+  const messages = activeConvo?.messages ?? []
+  const noModels = installedModels.length === 0
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingText])
 
-  const handleSend = async () => {
-    if (!input.trim() || !selectedModelPath || isGenerating) return
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [activeConversationId])
 
-    const userMessage: ChatMessage = { role: 'user', content: input.trim() }
-    const newMessages = [...messages, userMessage]
-    setMessages(newMessages)
+  const handleSend = async () => {
+    if (!input.trim() || isGenerating || noModels) return
+    const msg = input.trim()
     setInput('')
 
-    try {
-      const response = await sendMessage(selectedModelPath, input.trim())
-      setMessages([...newMessages, { role: 'assistant', content: response }])
-    } catch {
-      setMessages([
-        ...newMessages,
-        { role: 'assistant', content: 'Error: Failed to generate response. Please try again.' }
-      ])
+    if (!activeConversationId) {
+      createConversation()
     }
+
+    await sendMessage(msg)
   }
 
-  const handleNewChat = async () => {
-    await resetChat()
-    setMessages([])
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
   }
 
-  const noModels = installedModels.length === 0
+  // Bundled model banner
+  const isBundledModel = selectedModelName?.includes('Phi-3')
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-white/10">
-        <h1 className="text-lg font-semibold text-white">Chat</h1>
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5">
         <select
           value={selectedModelPath ?? ''}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          className="bg-surface border border-white/10 text-white text-sm rounded-lg px-3 py-1.5 outline-none"
+          onChange={(e) => {
+            const model = installedModels.find((m) => m.path === e.target.value)
+            if (model) setSelectedModel(model.path, model.name)
+          }}
+          className="bg-surface-dark border border-white/10 text-white text-xs rounded-lg px-3 py-1.5 outline-none"
         >
           {noModels && <option value="">No models installed</option>}
           {installedModels.map((m) => (
-            <option key={m.path} value={m.path}>
-              {m.name}
-            </option>
+            <option key={m.path} value={m.path}>{m.name}</option>
           ))}
         </select>
-        {messages.length > 0 && (
+
+        {isBundledModel && (
           <button
-            onClick={handleNewChat}
-            className="ml-auto text-xs text-gray-400 hover:text-white px-3 py-1.5 bg-white/5 rounded-lg transition-colors"
+            onClick={() => navigate('/models')}
+            className="text-[11px] text-gray-500 hover:text-accent transition-colors"
           >
-            New Chat
+            Running Phi-3 Mini \u2014 explore more powerful models in the library \u2192
           </button>
         )}
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        {/* Empty state */}
         {messages.length === 0 && !isGenerating && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-gray-600 text-sm">
-              {noModels
-                ? 'Download a model from the Model Library to start chatting'
-                : 'Send a message to start chatting'}
-            </p>
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            {noModels ? (
+              <>
+                <p className="text-gray-500 text-sm mb-4">Download a model to start chatting</p>
+                <button
+                  onClick={() => navigate('/models')}
+                  className="px-5 py-2.5 bg-accent hover:bg-accent-dark rounded-lg text-white text-sm font-medium transition-colors"
+                >
+                  Browse Models
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-xl font-semibold text-white mb-1">
+                  <span className="text-accent">Air</span>oost
+                </h2>
+                <p className="text-sm text-gray-500 mb-6">AI that stays home.</p>
+                <div className="grid grid-cols-2 gap-3 max-w-sm">
+                  {['Explain quantum computing simply', 'Write a haiku about coding', 'Help me plan a weekend trip', 'Summarize the theory of relativity'].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => { setInput(prompt); inputRef.current?.focus() }}
+                      className="text-left px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
+
+        {/* Message bubbles */}
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div
-              className={`max-w-[70%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-accent text-white rounded-br-md'
-                  : 'bg-surface text-gray-200 rounded-bl-md'
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+            <div className={`group relative max-w-[75%] ${msg.role === 'user' ? '' : ''}`}>
+              <div
+                className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-accent text-white rounded-br-md'
+                    : 'bg-surface text-gray-200 rounded-bl-md'
+                }`}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+
+              {/* Actions on assistant messages */}
+              {msg.role === 'assistant' && !isGenerating && (
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 mt-1">
+                  <button
+                    onClick={() => handleCopy(msg.content)}
+                    className="text-[10px] text-gray-600 hover:text-gray-300 px-2 py-0.5 rounded bg-white/5 transition-colors"
+                  >
+                    Copy
+                  </button>
+                  {i === messages.length - 1 && (
+                    <button
+                      onClick={regenerateLastResponse}
+                      className="text-[10px] text-gray-600 hover:text-gray-300 px-2 py-0.5 rounded bg-white/5 transition-colors"
+                    >
+                      Regenerate
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
+
         {/* Streaming response */}
         {isGenerating && (
           <div className="flex justify-start">
-            <div className="max-w-[70%] bg-surface px-4 py-3 rounded-2xl rounded-bl-md text-sm text-gray-200 leading-relaxed">
+            <div className="max-w-[75%] bg-surface px-4 py-3 rounded-2xl rounded-bl-md text-sm text-gray-200 leading-relaxed">
               {streamingText ? (
-                <p className="whitespace-pre-wrap">{streamingText}<span className="animate-pulse">▌</span></p>
+                <p className="whitespace-pre-wrap">{streamingText}<span className="animate-pulse text-accent">{'\u258C'}</span></p>
               ) : (
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]" />
-                  <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="flex gap-1 py-1">
+                  <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" />
+                  <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.2s]" />
                 </div>
               )}
             </div>
@@ -127,21 +175,22 @@ export default function ChatPage() {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-white/10">
+      <div className="px-5 py-4 border-t border-white/5">
         <div className="flex gap-3">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
             placeholder={noModels ? 'Download a model first...' : 'Type a message...'}
             disabled={noModels || isGenerating}
-            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 outline-none focus:border-accent/50 disabled:opacity-50"
+            className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 outline-none focus:border-accent/50 transition-colors disabled:opacity-50"
           />
           <button
             onClick={handleSend}
             disabled={!input.trim() || noModels || isGenerating}
-            className="px-5 py-3 bg-accent hover:bg-accent-dark rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-3 bg-accent hover:bg-accent-dark rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Send
           </button>
