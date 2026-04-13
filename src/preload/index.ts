@@ -83,6 +83,20 @@ const api = {
   hfSearch: (query: string, limit?: number) => ipcRenderer.invoke('hf:search', query, limit ?? 20),
   hfDownload: (fileUrl: string, filename: string) => ipcRenderer.invoke('hf:download', fileUrl, filename),
 
+  // Updater
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  onUpdateAvailable: (callback: (data: { version: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: { version: string }) => callback(data)
+    ipcRenderer.on('updater:available', handler)
+    return () => ipcRenderer.removeListener('updater:available', handler)
+  },
+  onUpdateDownloaded: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('updater:downloaded', handler)
+    return () => ipcRenderer.removeListener('updater:downloaded', handler)
+  },
+
   // Events
   onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, data: { modelId: string; percent: number; status: string }) => callback(data)

@@ -9,6 +9,10 @@ interface Window {
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
     getFilePath: (file: File) => string
+    downloadUpdate: () => Promise<void>
+    installUpdate: () => Promise<void>
+    onUpdateAvailable: (callback: (data: { version: string }) => void) => () => void
+    onUpdateDownloaded: (callback: () => void) => () => void
     getStats: () => Promise<UsageStatsData>
     recordConvo: () => Promise<void>
     recordMessage: (modelName: string, responseTimeMs: number, tokenCount: number) => Promise<void>

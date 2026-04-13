@@ -11,6 +11,7 @@ import KnowledgeBasePage from './pages/KnowledgeBasePage'
 import DashboardPage from './pages/DashboardPage'
 import OnboardingTour from './components/OnboardingTour'
 import ShortcutsModal from './components/ShortcutsModal'
+import UpdateBanner from './components/UpdateBanner'
 import { useAppStore } from './store/appStore'
 import { useThemeStore } from './store/themeStore'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -66,6 +67,7 @@ export default function App() {
       </main>
 
       {/* Global overlays */}
+      <UpdateBanner />
       <OnboardingTour />
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>

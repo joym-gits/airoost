@@ -26,10 +26,13 @@ import {
   getUsageStats, recordConversation, recordMessage, getBenchmarks, saveBenchmark,
   getLiveHardwareStats
 } from './statsService'
+import { initAutoUpdater, downloadUpdate, installUpdate } from './updater'
 import { exportToPDF, exportToDOCX, exportToMarkdown, exportToText } from './exportService'
 
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 900,
@@ -46,7 +49,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow!.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -312,10 +315,17 @@ ipcMain.handle('stats:run-benchmark', async (event, modelPath: string, modelName
 })
 ipcMain.handle('stats:hw-live', () => getLiveHardwareStats())
 
+// Auto-updater
+ipcMain.handle('updater:download', () => downloadUpdate())
+ipcMain.handle('updater:install', () => installUpdate())
+
 // ─── App Lifecycle ────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
   createWindow()
+
+  // Auto-updater (silent check)
+  if (mainWindow) initAutoUpdater(mainWindow)
 
   // Init LLM engine and pre-load first installed model in background
   initLlama()

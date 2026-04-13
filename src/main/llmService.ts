@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream } from 'fs'
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream, copyFileSync } from 'fs'
 import { execSync } from 'child_process'
 import os from 'os'
 import https from 'https'
@@ -247,8 +247,28 @@ function ensureModelsDir(): void {
   }
 }
 
+/**
+ * Copy bundled model from app resources to user's models folder on first launch.
+ */
+function copyBundledModel(): void {
+  ensureModelsDir()
+  const bundledDir = join(process.resourcesPath, 'models')
+  if (!existsSync(bundledDir)) return
+
+  const files = readdirSync(bundledDir).filter((f) => f.endsWith('.gguf'))
+  for (const file of files) {
+    const dest = join(getModelsDirPath(), file)
+    if (!existsSync(dest)) {
+      console.log('Copying bundled model:', file)
+      copyFileSync(join(bundledDir, file), dest)
+      console.log('Bundled model ready:', file)
+    }
+  }
+}
+
 export async function initLlama(): Promise<void> {
   ensureModelsDir()
+  copyBundledModel()
   const { getLlama } = await loadNodeLlamaCpp()
   llamaInstance = await getLlama()
 }

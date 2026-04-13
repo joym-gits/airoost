@@ -3,17 +3,25 @@
   "version": "0.1.0",
   "description": "VLC for AI models — download and run open-source AI models locally with zero setup",
   "main": "out/main/index.js",
-  "author": "joym-gits",
+  "author": {
+    "name": "Airoost",
+    "email": "hello@airoost.com"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite build && node scripts/fix-esm.mjs && env -u ELECTRON_RUN_AS_NODE electron .",
     "build": "electron-vite build && node scripts/fix-esm.mjs",
     "preview": "electron-vite preview",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:win": "npm run build && electron-builder --win",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:all": "npm run build && electron-builder --mac --win --linux"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
     "docx": "^9.6.1",
+    "electron-updater": "^6.8.3",
     "file-saver": "^2.0.5",
     "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
@@ -42,21 +50,93 @@
   "build": {
     "appId": "com.airoost.app",
     "productName": "Airoost",
+    "copyright": "Copyright © 2026 Airoost",
     "directories": {
-      "output": "out"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
-      "dist-electron/**/*",
-      "dist/**/*"
+      "out/**/*",
+      "node_modules/**/*",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/models/",
+        "to": "models/",
+        "filter": ["**/*.gguf"]
+      }
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/node-llama-cpp/**",
+      "node_modules/pdf-parse/**",
+      "node_modules/mammoth/**",
+      "node_modules/@huggingface/**",
+      "node_modules/vectra/**"
     ],
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "${productName}-${version}-mac-universal.${ext}"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ],
+      "window": { "width": 540, "height": 380 }
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "${productName}-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Airoost",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "desktop": {
+        "Name": "Airoost",
+        "Comment": "VLC for AI models — run AI locally",
+        "Categories": "Utility;Development;"
+      },
+      "artifactName": "${productName}-${version}-linux-x64.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "joym-gits",
+      "repo": "airoost"
     }
   }
 }
