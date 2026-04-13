@@ -36,7 +36,7 @@ export default function ChatPage() {
   const messages = activeConvo?.messages ?? []
   const noModels = installedModels.length === 0
   const hasMessages = messages.length > 0
-  const canCompare = installedModels.length >= 2
+  const canCompare = installedModels.length >= 1
 
   useEffect(() => {
     window.airoost.getPersonas().then(setPersonas)

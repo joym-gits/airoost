@@ -120,6 +120,11 @@ export default function CompareView() {
             <span className="text-[11px] font-medium text-blue-400">{compareModelA?.name ?? 'Model A'}</span>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            {history.length === 0 && !compareGeneratingA && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-gray-600">Send a prompt below to see {compareModelA?.name ?? 'Model A'} respond here</p>
+              </div>
+            )}
             {history.map((entry, i) => (
               <div key={i}>
                 {entry.prompt && (
@@ -161,6 +166,11 @@ export default function CompareView() {
             <span className="text-[11px] font-medium text-purple-400">{compareModelB?.name ?? 'Model B'}</span>
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            {history.length === 0 && !compareGeneratingB && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-gray-600">Send a prompt below to see {compareModelB?.name ?? 'Model B'} respond here</p>
+              </div>
+            )}
             {history.map((entry, i) => (
               <div key={i}>
                 {entry.prompt && (

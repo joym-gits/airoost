@@ -492,11 +492,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setCompareMode: (on) => {
     const { installedModels } = get()
-    if (on && installedModels.length >= 2) {
+    if (on && installedModels.length >= 1) {
       set({
         compareMode: true,
         compareModelA: { path: installedModels[0].path, name: installedModels[0].name },
-        compareModelB: { path: installedModels[1].path, name: installedModels[1].name },
+        compareModelB: installedModels.length >= 2
+          ? { path: installedModels[1].path, name: installedModels[1].name }
+          : { path: installedModels[0].path, name: installedModels[0].name },
         compareStreamA: '',
         compareStreamB: '',
         compareGeneratingA: false,
