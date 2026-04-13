@@ -50,9 +50,6 @@ export default function ChatPage() {
     inputRef.current?.focus()
   }, [activeConversationId])
 
-  // Render compare mode (after all hooks)
-  if (compareMode) return <CompareView />
-
   // Close export menu on outside click
   useEffect(() => {
     if (!showExportMenu) return
@@ -146,6 +143,9 @@ export default function ChatPage() {
   }
 
   const isBundledModel = selectedModelName?.includes('Phi-3')
+
+  // Render compare mode (after ALL hooks)
+  if (compareMode) return <CompareView />
 
   return (
     <div className="flex flex-col h-full">
