@@ -8,9 +8,25 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    hfSearch: (query: string, limit?: number) => Promise<HFModel[]>
+    hfDownload: (fileUrl: string, filename: string) => Promise<string>
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface HFModel {
+  id: string
+  author: string
+  name: string
+  downloads: number
+  likes: number
+  tags: string[]
+  pipelineTag: string
+  badge: 'verified' | 'community'
+  ggufFiles: { filename: string; sizeBytes: number; url: string }[]
+  totalSizeBytes: number
+  compatibility: { status: string; message: string }
 }
 
 interface CatalogModel {

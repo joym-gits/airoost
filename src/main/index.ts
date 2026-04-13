@@ -12,6 +12,7 @@ import {
   getModelsDir,
   loadModel
 } from './llmService'
+import { searchModels, downloadHFModel } from './huggingfaceService'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -88,6 +89,23 @@ ipcMain.handle('hw:detect', () => {
     console.error('Hardware detection error:', err)
     return null
   }
+})
+
+// HuggingFace Explorer
+ipcMain.handle('hf:search', async (_event, query: string, limit: number) => {
+  try {
+    const hw = detectHardware()
+    return await searchModels(query, limit, hw?.totalRamGB ?? 16)
+  } catch (err) {
+    console.error('HF search error:', err)
+    return []
+  }
+})
+
+ipcMain.handle('hf:download', (event, fileUrl: string, filename: string) => {
+  return downloadHFModel(fileUrl, filename, getModelsDir(), (percent, status) => {
+    event.sender.send('llm:download-progress', { modelId: filename, percent, status })
+  })
 })
 
 // ─── App Lifecycle ────────────────────────────────────────────────

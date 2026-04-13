@@ -15,6 +15,10 @@ const api = {
   // Hardware
   detectHardware: () => ipcRenderer.invoke('hw:detect'),
 
+  // HuggingFace Explorer
+  hfSearch: (query: string, limit?: number) => ipcRenderer.invoke('hf:search', query, limit ?? 20),
+  hfDownload: (fileUrl: string, filename: string) => ipcRenderer.invoke('hf:download', fileUrl, filename),
+
   // Events
   onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, data: { modelId: string; percent: number; status: string }) => callback(data)
