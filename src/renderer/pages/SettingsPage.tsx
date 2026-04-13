@@ -1,14 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import { useVoiceStore } from '../store/voiceStore'
+import * as voiceSvc from '../services/voiceService'
 
 export default function SettingsPage() {
   const { installedModels, hardware, detectHardware, fetchInstalled } = useAppStore()
+  const { settings, updateSettings, whisperLoaded } = useVoiceStore()
   const [modelsDir, setModelsDir] = useState('')
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
+  const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([])
 
   useEffect(() => {
     fetchInstalled()
     detectHardware()
     window.airoost.getModelsDir().then(setModelsDir)
+
+    // Load voice devices/voices
+    const loadVoice = () => {
+      setVoices(voiceSvc.getVoices())
+      voiceSvc.getAudioInputDevices().then(setAudioInputs)
+      voiceSvc.getAudioOutputDevices().then(setAudioOutputs)
+    }
+    loadVoice()
+    window.speechSynthesis.onvoiceschanged = loadVoice
   }, [fetchInstalled, detectHardware])
 
   return (
@@ -83,6 +98,101 @@ export default function SettingsPage() {
         </Section>
 
         {/* About */}
+        {/* Voice */}
+        <Section title="Voice">
+          <Row label="Whisper Model" value={whisperLoaded ? 'Loaded (whisper-tiny)' : 'Not loaded — opens on Voice page'} />
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Input device</span>
+            <select
+              value={settings.inputDeviceId}
+              onChange={(e) => updateSettings({ inputDeviceId: e.target.value })}
+              className="bg-surface-dark border border-white/10 text-white text-xs rounded px-2 py-1 outline-none max-w-[200px]"
+            >
+              <option value="">Default</option>
+              {audioInputs.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId.slice(0, 20)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Output device</span>
+            <select
+              value={settings.outputDeviceId}
+              onChange={(e) => updateSettings({ outputDeviceId: e.target.value })}
+              className="bg-surface-dark border border-white/10 text-white text-xs rounded px-2 py-1 outline-none max-w-[200px]"
+            >
+              <option value="">Default</option>
+              {audioOutputs.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>{d.label || d.deviceId.slice(0, 20)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">TTS voice</span>
+            <select
+              value={settings.ttsVoiceURI}
+              onChange={(e) => updateSettings({ ttsVoiceURI: e.target.value })}
+              className="bg-surface-dark border border-white/10 text-white text-xs rounded px-2 py-1 outline-none max-w-[200px]"
+            >
+              <option value="">System default</option>
+              {voices.map((v) => (
+                <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">TTS speed</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={settings.ttsRate}
+                onChange={(e) => updateSettings({ ttsRate: parseFloat(e.target.value) })}
+                className="w-24 accent-accent"
+              />
+              <span className="text-xs text-white w-8">{settings.ttsRate}x</span>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Auto-send after speech</span>
+            <button
+              onClick={() => updateSettings({ autoSend: !settings.autoSend })}
+              className={`w-10 h-5 rounded-full transition-colors ${settings.autoSend ? 'bg-accent' : 'bg-white/10'}`}
+            >
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${settings.autoSend ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Transcription language</span>
+            <select
+              value={settings.language}
+              onChange={(e) => updateSettings({ language: e.target.value })}
+              className="bg-surface-dark border border-white/10 text-white text-xs rounded px-2 py-1 outline-none"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+              <option value="zh">Chinese</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="hi">Hindi</option>
+              <option value="ar">Arabic</option>
+            </select>
+          </div>
+        </Section>
+
         <Section title="About">
           <Row label="Version" value="0.1.0" />
           <Row label="Engine" value="llama.cpp (built-in)" />
