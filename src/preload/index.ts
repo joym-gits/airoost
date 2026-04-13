@@ -15,6 +15,12 @@ const api = {
   // Hardware
   detectHardware: () => ipcRenderer.invoke('hw:detect'),
 
+  // Export
+  exportPDF: (data: any) => ipcRenderer.invoke('export:pdf', data),
+  exportDOCX: (data: any) => ipcRenderer.invoke('export:docx', data),
+  exportMarkdown: (data: any) => ipcRenderer.invoke('export:markdown', data),
+  exportText: (data: any) => ipcRenderer.invoke('export:text', data),
+
   // Prompt Library
   getPrompts: () => ipcRenderer.invoke('prompts:get-all'),
   createPrompt: (name: string, category: string, text: string) => ipcRenderer.invoke('prompts:create', name, category, text),

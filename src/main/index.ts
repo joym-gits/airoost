@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import {
   initLlama,
@@ -17,6 +17,7 @@ import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
 import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
 import { getAllPrompts, createPrompt, updatePrompt, deletePrompt, toggleFavourite } from './promptLibraryService'
+import { exportToPDF, exportToDOCX, exportToMarkdown, exportToText } from './exportService'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -169,6 +170,37 @@ ipcMain.handle('llm:chat-persona', async (event, modelPath: string, systemPrompt
     console.error('Persona chat error:', err)
     throw err
   }
+})
+
+// Export
+ipcMain.handle('export:pdf', async (_event, data: any) => {
+  const result = await dialog.showSaveDialog({
+    title: 'Export as PDF',
+    defaultPath: `${data.title.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }]
+  })
+  if (result.canceled || !result.filePath) return null
+  await exportToPDF(data, result.filePath)
+  return result.filePath
+})
+
+ipcMain.handle('export:docx', async (_event, data: any) => {
+  const result = await dialog.showSaveDialog({
+    title: 'Export as Word',
+    defaultPath: `${data.title.replace(/[^a-z0-9]/gi, '_')}.docx`,
+    filters: [{ name: 'Word Document', extensions: ['docx'] }]
+  })
+  if (result.canceled || !result.filePath) return null
+  await exportToDOCX(data, result.filePath)
+  return result.filePath
+})
+
+ipcMain.handle('export:markdown', (_event, data: any) => {
+  return exportToMarkdown(data)
+})
+
+ipcMain.handle('export:text', (_event, data: any) => {
+  return exportToText(data)
 })
 
 // Prompt Library

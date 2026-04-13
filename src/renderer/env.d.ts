@@ -8,6 +8,10 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    exportPDF: (data: any) => Promise<string | null>
+    exportDOCX: (data: any) => Promise<string | null>
+    exportMarkdown: (data: any) => Promise<string>
+    exportText: (data: any) => Promise<string>
     getPrompts: () => Promise<PromptData[]>
     createPrompt: (name: string, category: string, text: string) => Promise<PromptData>
     updatePrompt: (id: string, name: string, category: string, text: string) => Promise<PromptData | null>
