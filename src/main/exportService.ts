@@ -47,8 +47,8 @@ export async function exportToPDF(data: ExportData, savePath: string): Promise<v
  * Export conversation as DOCX using the docx npm package.
  */
 export async function exportToDOCX(data: ExportData, savePath: string): Promise<void> {
-  // Dynamic require to avoid Vite bundling
-  const docxMod = Function('m', 'return require(m)')('docx')
+  // Dynamic import to avoid Vite bundling
+  const docxMod = await (Function('m', 'return import(m)')('docx'))
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docxMod
 
   const children: any[] = []

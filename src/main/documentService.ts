@@ -1,11 +1,11 @@
 import { readFileSync } from 'fs'
 import { extname, basename } from 'path'
 
-// Dynamic requires to prevent Vite from bundling native modules
+// Dynamic imports to prevent Vite from bundling native modules
 const _modCache: Record<string, any> = {}
-function dynamicRequire(mod: string) {
+async function dynamicImport(mod: string) {
   if (!_modCache[mod]) {
-    _modCache[mod] = Function('m', 'return require(m)')(mod)
+    _modCache[mod] = await (Function('m', 'return import(m)')(mod))
   }
   return _modCache[mod]
 }
@@ -62,7 +62,8 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 }
 
 async function parsePDF(filePath: string): Promise<{ text: string; pageCount: number }> {
-  const pdfParse = dynamicRequire('pdf-parse')
+  const pdfMod = await dynamicImport('pdf-parse')
+  const pdfParse = pdfMod.default ?? pdfMod
   const buffer = readFileSync(filePath)
   const data = await pdfParse(buffer)
   return {
@@ -72,7 +73,7 @@ async function parsePDF(filePath: string): Promise<{ text: string; pageCount: nu
 }
 
 async function parseDOCX(filePath: string): Promise<string> {
-  const mammoth = dynamicRequire('mammoth')
+  const mammoth = await dynamicImport('mammoth')
   const buffer = readFileSync(filePath)
   const result = await mammoth.extractRawText({ buffer })
   return result.value ?? ''
