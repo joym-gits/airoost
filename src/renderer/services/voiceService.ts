@@ -68,6 +68,12 @@ export async function transcribe(
     throw new Error('Whisper model not loaded')
   }
 
+  // Skip if audio is empty or too short (< 0.5 seconds at 16kHz)
+  if (!audioData || audioData.length < 8000) {
+    console.log('Voice: audio too short, skipping transcription')
+    return ''
+  }
+
   const options: any = {
     return_timestamps: false,
     chunk_length_s: 30
@@ -77,12 +83,36 @@ export async function transcribe(
   }
 
   const result = await whisperPipeline(audioData, options)
-  return result?.text?.trim() ?? ''
+  const text = result?.text?.trim() ?? ''
+
+  // Filter out common Whisper hallucinations on near-silence
+  const hallucinations = ['you', 'thank you', 'thanks for watching', 'subscribe', 'bye', '...']
+  if (hallucinations.includes(text.toLowerCase())) {
+    console.log('Voice: filtered likely hallucination:', text)
+    return ''
+  }
+
+  return text
 }
 
 /**
- * Record audio from the microphone.
- * Returns a controller object to stop recording.
+ * Resample audio buffer to 16kHz mono Float32Array (what Whisper needs).
+ */
+async function resampleTo16kHz(audioBuffer: AudioBuffer): Promise<Float32Array> {
+  const targetSampleRate = 16000
+  const numSamples = Math.round(audioBuffer.duration * targetSampleRate)
+  const offlineCtx = new OfflineAudioContext(1, numSamples, targetSampleRate)
+  const source = offlineCtx.createBufferSource()
+  source.buffer = audioBuffer
+  source.connect(offlineCtx.destination)
+  source.start(0)
+  const rendered = await offlineCtx.startRendering()
+  return rendered.getChannelData(0)
+}
+
+/**
+ * Record audio from the microphone using MediaRecorder.
+ * Returns a controller object to stop recording and get 16kHz Float32Array.
  */
 export function startRecording(
   deviceId?: string,
@@ -93,14 +123,15 @@ export function startRecording(
 } {
   let audioContext: AudioContext | null = null
   let mediaStream: MediaStream | null = null
-  let source: MediaStreamAudioSourceNode | null = null
+  let mediaRecorder: MediaRecorder | null = null
   let analyser: AnalyserNode | null = null
-  let processor: ScriptProcessorNode | null = null
-  const chunks: Float32Array[] = []
+  const blobChunks: Blob[] = []
   let cancelled = false
 
   const constraints: MediaStreamConstraints = {
-    audio: deviceId ? { deviceId: { exact: deviceId } } : true
+    audio: deviceId
+      ? { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true }
+      : { echoCancellation: true, noiseSuppression: true }
   }
 
   const ready = navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
@@ -110,47 +141,65 @@ export function startRecording(
     }
 
     mediaStream = stream
-    audioContext = new AudioContext({ sampleRate: 16000 })
-    source = audioContext.createMediaStreamSource(stream)
+
+    // Set up analyser for waveform (at native sample rate — just for visuals)
+    audioContext = new AudioContext()
+    const source = audioContext.createMediaStreamSource(stream)
     analyser = audioContext.createAnalyser()
     analyser.fftSize = 256
     source.connect(analyser)
+    onAudioData?.(analyser)
 
-    // Provide analyser for waveform visualisation
-    if (analyser) onAudioData?.(analyser)
-
-    // Collect audio samples
-    processor = audioContext.createScriptProcessor(4096, 1, 1)
-    processor.onaudioprocess = (e) => {
-      const data = e.inputBuffer.getChannelData(0)
-      chunks.push(new Float32Array(data))
+    // Record with MediaRecorder (captures at native quality)
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) blobChunks.push(e.data)
     }
-    source.connect(processor)
-    processor.connect(audioContext.destination)
+    mediaRecorder.start(100) // collect in 100ms chunks for responsiveness
   })
 
   return {
     stop: async () => {
       await ready
-      processor?.disconnect()
-      source?.disconnect()
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        return new Float32Array(0)
+      }
+
+      // Stop recording and collect final data
+      const stopped = new Promise<void>((resolve) => {
+        mediaRecorder!.onstop = () => resolve()
+      })
+      mediaRecorder.stop()
+      await stopped
+
+      // Clean up streams
       mediaStream?.getTracks().forEach((t) => t.stop())
+
+      // Decode the recorded audio blob to AudioBuffer
+      const blob = new Blob(blobChunks, { type: 'audio/webm' })
+      const arrayBuffer = await blob.arrayBuffer()
+
+      // Use a fresh AudioContext to decode (at native sample rate)
+      const decodeCtx = new AudioContext()
+      const audioBuffer = await decodeCtx.decodeAudioData(arrayBuffer)
+      await decodeCtx.close()
       await audioContext?.close()
 
-      // Merge chunks into single Float32Array
-      const totalLength = chunks.reduce((sum, c) => sum + c.length, 0)
-      const merged = new Float32Array(totalLength)
-      let offset = 0
-      for (const chunk of chunks) {
-        merged.set(chunk, offset)
-        offset += chunk.length
+      // Check if audio has actual content (not silence)
+      const rawData = audioBuffer.getChannelData(0)
+      const rms = Math.sqrt(rawData.reduce((sum, v) => sum + v * v, 0) / rawData.length)
+      if (rms < 0.005) {
+        // Audio is essentially silence
+        console.log('Voice: audio too quiet (RMS:', rms, '), skipping transcription')
+        return new Float32Array(0)
       }
-      return merged
+
+      // Resample to 16kHz for Whisper
+      return resampleTo16kHz(audioBuffer)
     },
     cancel: () => {
       cancelled = true
-      processor?.disconnect()
-      source?.disconnect()
+      mediaRecorder?.stop()
       mediaStream?.getTracks().forEach((t) => t.stop())
       audioContext?.close()
     }
