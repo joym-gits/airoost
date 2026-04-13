@@ -7,7 +7,7 @@
     "name": "Airoost",
     "email": "hello@airoost.com"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "dev": "electron-vite build && node scripts/fix-esm.mjs && env -u ELECTRON_RUN_AS_NODE electron .",
     "build": "electron-vite build && node scripts/fix-esm.mjs",
