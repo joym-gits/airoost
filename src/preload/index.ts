@@ -15,6 +15,13 @@ const api = {
   // Hardware
   detectHardware: () => ipcRenderer.invoke('hw:detect'),
 
+  // Prompt Library
+  getPrompts: () => ipcRenderer.invoke('prompts:get-all'),
+  createPrompt: (name: string, category: string, text: string) => ipcRenderer.invoke('prompts:create', name, category, text),
+  updatePrompt: (id: string, name: string, category: string, text: string) => ipcRenderer.invoke('prompts:update', id, name, category, text),
+  deletePrompt: (id: string) => ipcRenderer.invoke('prompts:delete', id),
+  togglePromptFav: (id: string) => ipcRenderer.invoke('prompts:toggle-fav', id),
+
   // Personas
   getPersonas: () => ipcRenderer.invoke('persona:get-all'),
   getPersona: (id: string) => ipcRenderer.invoke('persona:get', id),

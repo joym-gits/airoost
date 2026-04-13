@@ -8,6 +8,11 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    getPrompts: () => Promise<PromptData[]>
+    createPrompt: (name: string, category: string, text: string) => Promise<PromptData>
+    updatePrompt: (id: string, name: string, category: string, text: string) => Promise<PromptData | null>
+    deletePrompt: (id: string) => Promise<void>
+    togglePromptFav: (id: string) => Promise<boolean>
     getPersonas: () => Promise<PersonaData[]>
     getPersona: (id: string) => Promise<PersonaData | null>
     createPersona: (name: string, emoji: string, systemPrompt: string) => Promise<PersonaData>
@@ -21,6 +26,15 @@ interface Window {
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface PromptData {
+  id: string
+  name: string
+  category: string
+  text: string
+  favourite: boolean
+  builtin: boolean
 }
 
 interface PersonaData {

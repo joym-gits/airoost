@@ -16,6 +16,7 @@ import { searchModels, downloadHFModel } from './huggingfaceService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
 import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
+import { getAllPrompts, createPrompt, updatePrompt, deletePrompt, toggleFavourite } from './promptLibraryService'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -169,6 +170,13 @@ ipcMain.handle('llm:chat-persona', async (event, modelPath: string, systemPrompt
     throw err
   }
 })
+
+// Prompt Library
+ipcMain.handle('prompts:get-all', () => getAllPrompts())
+ipcMain.handle('prompts:create', (_event, name: string, category: string, text: string) => createPrompt(name, category, text))
+ipcMain.handle('prompts:update', (_event, id: string, name: string, category: string, text: string) => updatePrompt(id, name, category, text))
+ipcMain.handle('prompts:delete', (_event, id: string) => deletePrompt(id))
+ipcMain.handle('prompts:toggle-fav', (_event, id: string) => toggleFavourite(id))
 
 // ─── App Lifecycle ────────────────────────────────────────────────
 

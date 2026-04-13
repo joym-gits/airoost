@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAppStore } from '../store/appStore'
+import PromptLibrary from '../components/PromptLibrary'
 
 interface DocMessage {
   role: 'user' | 'assistant'
@@ -18,6 +19,7 @@ export default function DocumentsPage() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [isDragOver, setIsDragOver] = useState(false)
+  const [promptLibOpen, setPromptLibOpen] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -315,6 +317,16 @@ export default function DocumentsPage() {
       {doc && (
         <div className="px-5 py-4 border-t border-white/5">
           <div className="flex gap-3">
+            {/* Prompt Library button */}
+            <button
+              onClick={() => setPromptLibOpen(true)}
+              className="shrink-0 px-3 py-3 bg-surface border border-white/10 rounded-xl text-gray-500 hover:text-accent hover:border-accent/30 transition-colors"
+              title="Prompt Library"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+              </svg>
+            </button>
             <input
               ref={inputRef}
               type="text"
@@ -335,6 +347,16 @@ export default function DocumentsPage() {
           </div>
         </div>
       )}
+
+      {/* Prompt Library Modal */}
+      <PromptLibrary
+        open={promptLibOpen}
+        onClose={() => setPromptLibOpen(false)}
+        onSelect={(text) => {
+          setInput(text)
+          setTimeout(() => inputRef.current?.focus(), 50)
+        }}
+      />
 
       {/* Drag overlay */}
       {isDragOver && doc && (
