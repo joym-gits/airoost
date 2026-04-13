@@ -169,7 +169,7 @@ function buildExportHTML(data: ExportData): string {
 </head>
 <body>
   <div class="header">
-    <div class="logo"><span>Air</span>oost</div>
+    <div class="logo"><span>ai</span>roost</div>
     <h1 style="margin:8px 0 0;font-size:18px;">${escapeHTML(data.title)}</h1>
     <div class="meta">${escapeHTML(data.modelId)}${persona ? ` | ${escapeHTML(persona)}` : ''} | ${escapeHTML(date)}</div>
   </div>

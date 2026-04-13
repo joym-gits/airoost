@@ -45,8 +45,8 @@ export default function SetupScreen({ onComplete }: Props) {
       <div className="text-center max-w-sm">
         {/* Logo */}
         <h1 className="text-4xl font-bold mb-2">
-          <span className="text-accent">Air</span>
-          <span className="text-white">oost</span>
+          <span className="text-accent">ai</span>
+          <span className="text-white">roost</span>
         </h1>
         <p className="text-sm text-gray-500 mb-8">Setting up your AI...</p>
 
