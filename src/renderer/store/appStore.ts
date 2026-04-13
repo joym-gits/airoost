@@ -520,55 +520,50 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({
       compareGeneratingA: true,
-      compareGeneratingB: true,
+      compareGeneratingB: false,
       compareStreamA: '',
       compareStreamB: '',
       compareTimeA: null,
       compareTimeB: null
     })
 
-    const startTime = Date.now()
-    let streamA = ''
-    let streamB = ''
-
-    // Listen for per-side token events (both stream in parallel)
-    const cleanup = window.airoost.onCompareToken(({ side, token }) => {
-      if (side === 'A') {
-        streamA += token
-        set({ compareStreamA: streamA })
-      } else {
-        streamB += token
-        set({ compareStreamB: streamB })
-      }
-    })
-
+    // Model A
+    const startA = Date.now()
     let responseA = ''
-    let responseB = ''
-
-    try {
-      const result = await window.airoost.compareChat(
-        compareModelA.path,
-        compareModelB.path,
-        message
-      )
-      responseA = result.responseA
-      responseB = result.responseB
-    } catch {
-      responseA = responseA || 'Error generating response.'
-      responseB = responseB || 'Error generating response.'
-    } finally {
-      cleanup()
+    {
+      const cleanup = window.airoost.onChatToken(({ partial }) => {
+        set({ compareStreamA: partial })
+      })
+      try {
+        responseA = await window.airoost.chat(compareModelA.path, message)
+      } catch {
+        responseA = 'Error generating response.'
+      } finally {
+        cleanup()
+      }
     }
+    set({ compareGeneratingA: false, compareTimeA: Date.now() - startA, compareStreamA: responseA })
 
-    const elapsed = Date.now() - startTime
-    set({
-      compareGeneratingA: false,
-      compareGeneratingB: false,
-      compareStreamA: responseA,
-      compareStreamB: responseB,
-      compareTimeA: elapsed,
-      compareTimeB: elapsed
-    })
+    // Reset before model B
+    await window.airoost.resetChat()
+    set({ compareGeneratingB: true })
+
+    // Model B
+    const startB = Date.now()
+    let responseB = ''
+    {
+      const cleanup = window.airoost.onChatToken(({ partial }) => {
+        set({ compareStreamB: partial })
+      })
+      try {
+        responseB = await window.airoost.chat(compareModelB.path, message)
+      } catch {
+        responseB = 'Error generating response.'
+      } finally {
+        cleanup()
+      }
+    }
+    set({ compareGeneratingB: false, compareTimeB: Date.now() - startB, compareStreamB: responseB })
 
     // Save comparison to conversation history
     const { activePersona, activeFolderId } = get()
