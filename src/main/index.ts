@@ -1,6 +1,5 @@
 import { app, BrowserWindow, shell, ipcMain } from 'electron'
 import { join } from 'path'
-import { is } from '@electron-toolkit/utils'
 import {
   initLlama,
   getInstalledModels,
@@ -10,7 +9,8 @@ import {
   chat,
   resetChat,
   detectHardware,
-  getModelsDir
+  getModelsDir,
+  loadModel
 } from './llmService'
 
 function createWindow(): void {
@@ -39,17 +39,24 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../../dist/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
 
 // ─── IPC Handlers ─────────────────────────────────────────────────
 
 // Models
-ipcMain.handle('llm:get-catalog', () => getCatalog())
+ipcMain.handle('llm:get-catalog', () => {
+  try {
+    return getCatalog()
+  } catch (err) {
+    console.error('getCatalog error:', err)
+    return []
+  }
+})
 ipcMain.handle('llm:get-installed', () => getInstalledModels())
 ipcMain.handle('llm:get-models-dir', () => getModelsDir())
 
@@ -74,13 +81,31 @@ ipcMain.handle('llm:chat', async (event, modelPath: string, message: string) => 
 ipcMain.handle('llm:reset-chat', () => resetChat())
 
 // Hardware
-ipcMain.handle('hw:detect', () => detectHardware())
+ipcMain.handle('hw:detect', () => {
+  try {
+    return detectHardware()
+  } catch (err) {
+    console.error('Hardware detection error:', err)
+    return null
+  }
+})
 
 // ─── App Lifecycle ────────────────────────────────────────────────
 
 app.whenReady().then(async () => {
-  await initLlama()
   createWindow()
+
+  // Init LLM engine and pre-load first installed model in background
+  initLlama()
+    .then(async () => {
+      const installed = getInstalledModels()
+      if (installed.length > 0) {
+        console.log('Pre-loading model:', installed[0].name)
+        await loadModel(installed[0].path)
+        console.log('Model ready:', installed[0].name)
+      }
+    })
+    .catch((err) => console.error('LLM engine init deferred:', err))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

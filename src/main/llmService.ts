@@ -16,7 +16,13 @@ async function loadNodeLlamaCpp() {
   return _llamaCppModule
 }
 
-const MODELS_DIR = join(app.getPath('userData'), 'models')
+let _modelsDir: string | null = null
+function getModelsDirPath(): string {
+  if (!_modelsDir) {
+    _modelsDir = join(app.getPath('userData'), 'models')
+  }
+  return _modelsDir
+}
 
 // ─── Model Catalog ───────────────────────────────────────────────
 
@@ -235,8 +241,8 @@ let activeSession: any = null
 let loadedModelPath: string | null = null
 
 function ensureModelsDir(): void {
-  if (!existsSync(MODELS_DIR)) {
-    mkdirSync(MODELS_DIR, { recursive: true })
+  if (!existsSync(getModelsDirPath())) {
+    mkdirSync(getModelsDirPath(), { recursive: true })
   }
 }
 
@@ -248,9 +254,9 @@ export async function initLlama(): Promise<void> {
 
 export function getInstalledModels(): { id: string; name: string; size: number; path: string }[] {
   ensureModelsDir()
-  const files = readdirSync(MODELS_DIR).filter((f) => f.endsWith('.gguf'))
+  const files = readdirSync(getModelsDirPath()).filter((f) => f.endsWith('.gguf'))
   return files.map((filename) => {
-    const filePath = join(MODELS_DIR, filename)
+    const filePath = join(getModelsDirPath(), filename)
     const stats = statSync(filePath)
     const catalogEntry = MODEL_CATALOG.find((m) => m.filename === filename)
     return {
@@ -268,7 +274,7 @@ export function getCatalog(hw?: HardwareInfo) {
   const hardware = hw ?? detectHardware()
   return MODEL_CATALOG.map((m) => ({
     ...m,
-    installed: installedFiles.has(join(MODELS_DIR, m.filename)),
+    installed: installedFiles.has(join(getModelsDirPath(), m.filename)),
     compatibility: checkModelCompatibility(m, hardware)
   }))
 }
@@ -281,7 +287,7 @@ export async function downloadModel(
   if (!entry) throw new Error(`Model ${modelId} not found in catalog`)
 
   ensureModelsDir()
-  const destPath = join(MODELS_DIR, entry.filename)
+  const destPath = join(getModelsDirPath(), entry.filename)
 
   if (existsSync(destPath)) {
     onProgress(100, 'Already downloaded')
@@ -336,7 +342,7 @@ export async function downloadModel(
 export async function deleteModel(modelId: string): Promise<void> {
   const entry = MODEL_CATALOG.find((m) => m.id === modelId)
   if (!entry) return
-  const filePath = join(MODELS_DIR, entry.filename)
+  const filePath = join(getModelsDirPath(), entry.filename)
   if (existsSync(filePath)) {
     unlinkSync(filePath)
   }
@@ -394,5 +400,5 @@ export async function resetChat(): Promise<void> {
 }
 
 export function getModelsDir(): string {
-  return MODELS_DIR
+  return getModelsDirPath()
 }
