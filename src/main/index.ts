@@ -22,6 +22,10 @@ import {
   getAllKnowledgeBases, getKnowledgeBase, createKnowledgeBase, deleteKnowledgeBase,
   reindexKnowledgeBase, searchKnowledgeBase, buildRAGContext, getKBDocuments
 } from './ragService'
+import {
+  getUsageStats, recordConversation, recordMessage, getBenchmarks, saveBenchmark,
+  getLiveHardwareStats
+} from './statsService'
 import { exportToPDF, exportToDOCX, exportToMarkdown, exportToText } from './exportService'
 
 function createWindow(): void {
@@ -277,6 +281,36 @@ ipcMain.handle('prompts:create', (_event, name: string, category: string, text: 
 ipcMain.handle('prompts:update', (_event, id: string, name: string, category: string, text: string) => updatePrompt(id, name, category, text))
 ipcMain.handle('prompts:delete', (_event, id: string) => deletePrompt(id))
 ipcMain.handle('prompts:toggle-fav', (_event, id: string) => toggleFavourite(id))
+
+// Stats & Benchmarks
+ipcMain.handle('stats:get', () => getUsageStats())
+ipcMain.handle('stats:record-convo', () => recordConversation())
+ipcMain.handle('stats:record-message', (_e, modelName: string, responseTimeMs: number, tokenCount: number) => {
+  recordMessage(modelName, responseTimeMs, tokenCount)
+})
+ipcMain.handle('stats:benchmarks', () => getBenchmarks())
+ipcMain.handle('stats:run-benchmark', async (event, modelPath: string, modelName: string) => {
+  const testPrompt = 'Explain the theory of relativity in exactly 100 words.'
+  const startTime = Date.now()
+  const ramBefore = getLiveHardwareStats().ramUsedGB
+
+  let tokenCount = 0
+  const response = await chat(modelPath, testPrompt, () => { tokenCount++ })
+  const elapsed = Date.now() - startTime
+  const ramAfter = getLiveHardwareStats().ramUsedGB
+
+  const result = {
+    modelName,
+    modelPath,
+    tokensPerSecond: elapsed > 0 ? Math.round((tokenCount / (elapsed / 1000)) * 10) / 10 : 0,
+    responseTimeMs: elapsed,
+    ramUsageMB: Math.round((ramAfter - ramBefore + (response.length * 0.001)) * 100), // rough estimate
+    timestamp: Date.now()
+  }
+  saveBenchmark(result)
+  return result
+})
+ipcMain.handle('stats:hw-live', () => getLiveHardwareStats())
 
 // ─── App Lifecycle ────────────────────────────────────────────────
 

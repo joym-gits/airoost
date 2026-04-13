@@ -9,6 +9,12 @@ interface Window {
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
     getFilePath: (file: File) => string
+    getStats: () => Promise<UsageStatsData>
+    recordConvo: () => Promise<void>
+    recordMessage: (modelName: string, responseTimeMs: number, tokenCount: number) => Promise<void>
+    getBenchmarks: () => Promise<BenchmarkResultData[]>
+    runBenchmark: (modelPath: string, modelName: string) => Promise<BenchmarkResultData>
+    getHWLive: () => Promise<LiveHWData>
     kbGetAll: () => Promise<KnowledgeBaseData[]>
     kbGet: (id: string) => Promise<KnowledgeBaseData | null>
     kbGetDocs: (id: string) => Promise<KBDocumentData[]>
@@ -43,6 +49,31 @@ interface Window {
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface UsageStatsData {
+  totalConversations: number
+  totalMessages: number
+  totalTokensEstimated: number
+  modelUsage: Record<string, number>
+  modelResponseTimes: Record<string, number[]>
+  conversationsPerDay: Record<string, number>
+}
+
+interface BenchmarkResultData {
+  modelName: string
+  modelPath: string
+  tokensPerSecond: number
+  responseTimeMs: number
+  ramUsageMB: number
+  timestamp: number
+}
+
+interface LiveHWData {
+  cpuUsagePercent: number
+  ramUsedGB: number
+  ramTotalGB: number
+  ramPercent: number
 }
 
 interface KnowledgeBaseData {

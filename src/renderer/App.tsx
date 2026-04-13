@@ -8,6 +8,7 @@ import DocumentsPage from './pages/DocumentsPage'
 import VoicePage from './pages/VoicePage'
 import PersonasPage from './pages/PersonasPage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
+import DashboardPage from './pages/DashboardPage'
 import { useAppStore } from './store/appStore'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/voice" element={<VoicePage />} />
           <Route path="/personas" element={<PersonasPage />} />
           <Route path="/knowledge" element={<KnowledgeBasePage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

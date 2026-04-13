@@ -39,6 +39,16 @@ const api = {
   // File path helper (Electron's modern API for drag-drop)
   getFilePath: (file: File) => webUtils.getPathForFile(file),
 
+  // Stats & Benchmarks
+  getStats: () => ipcRenderer.invoke('stats:get'),
+  recordConvo: () => ipcRenderer.invoke('stats:record-convo'),
+  recordMessage: (modelName: string, responseTimeMs: number, tokenCount: number) =>
+    ipcRenderer.invoke('stats:record-message', modelName, responseTimeMs, tokenCount),
+  getBenchmarks: () => ipcRenderer.invoke('stats:benchmarks'),
+  runBenchmark: (modelPath: string, modelName: string) =>
+    ipcRenderer.invoke('stats:run-benchmark', modelPath, modelName),
+  getHWLive: () => ipcRenderer.invoke('stats:hw-live'),
+
   // Knowledge Bases (RAG)
   kbGetAll: () => ipcRenderer.invoke('kb:get-all'),
   kbGet: (id: string) => ipcRenderer.invoke('kb:get', id),
