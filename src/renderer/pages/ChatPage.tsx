@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 import PromptLibrary from '../components/PromptLibrary'
+import CompareView from '../components/CompareView'
 
 export default function ChatPage() {
   const navigate = useNavigate()
@@ -18,7 +19,9 @@ export default function ChatPage() {
     isGenerating,
     streamingText,
     activePersona,
-    setActivePersona
+    setActivePersona,
+    compareMode,
+    setCompareMode
   } = useAppStore()
 
   const [input, setInput] = useState('')
@@ -33,6 +36,10 @@ export default function ChatPage() {
   const messages = activeConvo?.messages ?? []
   const noModels = installedModels.length === 0
   const hasMessages = messages.length > 0
+  const canCompare = installedModels.length >= 2
+
+  // Render compare mode
+  if (compareMode) return <CompareView />
 
   useEffect(() => {
     window.airoost.getPersonas().then(setPersonas)
@@ -186,6 +193,19 @@ export default function ChatPage() {
           <span className="text-[11px] text-accent animate-pulse">{exportStatus}</span>
         )}
 
+        {/* Compare button */}
+        {canCompare && (
+          <button
+            onClick={() => setCompareMode(true)}
+            className="px-2.5 py-1.5 bg-white/5 hover:bg-accent/10 rounded-lg text-gray-400 hover:text-accent text-[11px] transition-colors flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+            </svg>
+            Compare
+          </button>
+        )}
+
         {/* Export button */}
         {hasMessages && (
           <div className="relative">
@@ -252,6 +272,14 @@ export default function ChatPage() {
                     </button>
                   ))}
                 </div>
+                {canCompare && (
+                  <button
+                    onClick={() => setCompareMode(true)}
+                    className="mt-4 px-4 py-2 rounded-lg bg-accent/10 hover:bg-accent/20 text-xs text-accent transition-colors"
+                  >
+                    Try comparing two models {'\u2192'}
+                  </button>
+                )}
               </>
             )}
           </div>

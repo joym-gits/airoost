@@ -99,6 +99,17 @@ interface AppState {
   isGenerating: boolean
   streamingText: string
 
+  // Comparison Mode
+  compareMode: boolean
+  compareModelA: { path: string; name: string } | null
+  compareModelB: { path: string; name: string } | null
+  compareStreamA: string
+  compareStreamB: string
+  compareGeneratingA: boolean
+  compareGeneratingB: boolean
+  compareTimeA: number | null
+  compareTimeB: number | null
+
   // Organisation
   folders: Folder[]
   activeFolderId: string | null
@@ -138,6 +149,13 @@ interface AppState {
   deleteFolder: (id: string) => void
   setActiveFolderId: (id: string | null) => void
 
+  // Actions - Comparison
+  setCompareMode: (on: boolean) => void
+  setCompareModelA: (path: string, name: string) => void
+  setCompareModelB: (path: string, name: string) => void
+  sendCompareMessage: (message: string) => Promise<void>
+  adoptCompareResponse: (side: 'A' | 'B', response: string) => void
+
   // Actions - Filtering
   setActiveTagFilter: (tag: string | null) => void
   setSidebarSearch: (query: string) => void
@@ -164,6 +182,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   activePersona: null,
   isGenerating: false,
   streamingText: '',
+
+  compareMode: false,
+  compareModelA: null,
+  compareModelB: null,
+  compareStreamA: '',
+  compareStreamB: '',
+  compareGeneratingA: false,
+  compareGeneratingB: false,
+  compareTimeA: null,
+  compareTimeB: null,
 
   folders: loadFolders(),
   activeFolderId: null,
@@ -459,6 +487,149 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveFolderId: (id) => set({ activeFolderId: id, activeTagFilter: null }),
+
+  // ─── Comparison Mode ──────────────────────────────────────────
+
+  setCompareMode: (on) => {
+    const { installedModels } = get()
+    if (on && installedModels.length >= 2) {
+      set({
+        compareMode: true,
+        compareModelA: { path: installedModels[0].path, name: installedModels[0].name },
+        compareModelB: { path: installedModels[1].path, name: installedModels[1].name },
+        compareStreamA: '',
+        compareStreamB: '',
+        compareGeneratingA: false,
+        compareGeneratingB: false,
+        compareTimeA: null,
+        compareTimeB: null
+      })
+    } else {
+      set({ compareMode: false })
+    }
+  },
+
+  setCompareModelA: (path, name) => set({ compareModelA: { path, name } }),
+  setCompareModelB: (path, name) => set({ compareModelB: { path, name } }),
+
+  sendCompareMessage: async (message: string) => {
+    const { compareModelA, compareModelB } = get()
+    if (!compareModelA || !compareModelB) return
+
+    set({
+      compareGeneratingA: true,
+      compareGeneratingB: true,
+      compareStreamA: '',
+      compareStreamB: '',
+      compareTimeA: null,
+      compareTimeB: null
+    })
+
+    const startA = Date.now()
+    const startB = Date.now()
+
+    // Run both in parallel
+    const chatA = (async () => {
+      const cleanup = window.airoost.onChatToken(({ partial }) => {
+        set({ compareStreamA: partial })
+      })
+      try {
+        const response = await window.airoost.chat(compareModelA.path, message)
+        set({ compareGeneratingA: false, compareTimeA: Date.now() - startA, compareStreamA: response })
+        return response
+      } catch {
+        set({ compareGeneratingA: false, compareStreamA: 'Error generating response.' })
+        return 'Error generating response.'
+      } finally {
+        cleanup()
+      }
+    })()
+
+    const chatB = (async () => {
+      // Small delay so token events don't collide on the same IPC channel
+      await new Promise((r) => setTimeout(r, 50))
+      const cleanup = window.airoost.onChatToken(({ partial }) => {
+        // Only update B if A is already done or we're past the initial tokens
+        if (!get().compareGeneratingA || partial.length > get().compareStreamA.length) {
+          set({ compareStreamB: partial })
+        }
+      })
+      try {
+        const response = await window.airoost.chatWithPersona(
+          compareModelB.path,
+          'You are a helpful assistant.',
+          message
+        )
+        set({ compareGeneratingB: false, compareTimeB: Date.now() - startB, compareStreamB: response })
+        return response
+      } catch {
+        set({ compareGeneratingB: false, compareStreamB: 'Error generating response.' })
+        return 'Error generating response.'
+      } finally {
+        cleanup()
+      }
+    })()
+
+    const [responseA, responseB] = await Promise.all([chatA, chatB])
+
+    // Save comparison to conversation history
+    const { activePersona, activeFolderId } = get()
+    const convo: Conversation = {
+      id: `conv_${Date.now()}`,
+      title: `Compare: ${message.slice(0, 40)}${message.length > 40 ? '...' : ''}`,
+      messages: [
+        { role: 'user', content: message, timestamp: Date.now() },
+        { role: 'assistant', content: `[${compareModelA.name}]: ${responseA}`, timestamp: Date.now() },
+        { role: 'assistant', content: `[${compareModelB.name}]: ${responseB}`, timestamp: Date.now() }
+      ],
+      modelId: `${compareModelA.name} vs ${compareModelB.name}`,
+      modelPath: compareModelA.path,
+      personaId: activePersona?.id ?? null,
+      personaName: activePersona?.name ?? null,
+      personaEmoji: activePersona?.emoji ?? null,
+      folderId: activeFolderId,
+      tags: ['comparison'],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    const convos = [convo, ...get().conversations]
+    saveConversations(convos)
+    set({ conversations: convos })
+  },
+
+  adoptCompareResponse: (side, response) => {
+    const { compareModelA, compareModelB, installedModels } = get()
+    const model = side === 'A' ? compareModelA : compareModelB
+    if (!model) return
+
+    // Switch to normal mode with the chosen model
+    set({
+      compareMode: false,
+      selectedModelPath: model.path,
+      selectedModelName: model.name
+    })
+
+    // Create a new conversation with the adopted response
+    const convo: Conversation = {
+      id: `conv_${Date.now()}`,
+      title: 'Continued from comparison',
+      messages: [
+        { role: 'assistant', content: response, timestamp: Date.now() }
+      ],
+      modelId: model.name,
+      modelPath: model.path,
+      personaId: null,
+      personaName: null,
+      personaEmoji: null,
+      folderId: null,
+      tags: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    const convos = [convo, ...get().conversations]
+    saveConversations(convos)
+    set({ conversations: convos, activeConversationId: convo.id })
+  },
 
   // ─── Filtering & Search ──────────────────────────────────────
 
