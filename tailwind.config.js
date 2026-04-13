@@ -6,14 +6,14 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#1a1a2e',
-          light: '#16213e',
-          dark: '#0f0f23'
+          DEFAULT: 'var(--surface)',
+          light: 'var(--surface-light)',
+          dark: 'var(--surface-dark)'
         },
         accent: {
-          DEFAULT: '#e94560',
-          light: '#ff6b6b',
-          dark: '#c73e54'
+          DEFAULT: 'var(--accent)',
+          light: 'var(--accent-light)',
+          dark: 'var(--accent-dark)'
         }
       }
     }

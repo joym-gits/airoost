@@ -2,6 +2,85 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Theme CSS Variables ──────────────────────────────────── */
+
+:root {
+  --accent: #e94560;
+  --accent-light: #ff6b6b;
+  --accent-dark: #c73e54;
+}
+
+/* Dark mode (default) */
+:root, .dark {
+  --surface: #1a1a2e;
+  --surface-light: #16213e;
+  --surface-dark: #0f0f23;
+  --text: #ffffff;
+  --text-secondary: #9ca3af;
+  color-scheme: dark;
+}
+
+/* Light mode */
+.light {
+  --surface: #f3f4f6;
+  --surface-light: #ffffff;
+  --surface-dark: #e5e7eb;
+  --text: #111827;
+  --text-secondary: #6b7280;
+  color-scheme: light;
+}
+
+.light body,
+.light .bg-surface-dark {
+  background-color: var(--surface-dark);
+}
+
+.light .bg-surface {
+  background-color: var(--surface);
+}
+
+.light .text-white {
+  color: var(--text);
+}
+
+.light .text-gray-200,
+.light .text-gray-300 {
+  color: #374151;
+}
+
+.light .text-gray-400,
+.light .text-gray-500 {
+  color: #6b7280;
+}
+
+.light .text-gray-600,
+.light .text-gray-700 {
+  color: #9ca3af;
+}
+
+.light .border-white\/5,
+.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.light .hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.light .hover\:bg-white\/10:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ─── Base Styles ──────────────────────────────────────────── */
+
 body {
   margin: 0;
   padding: 0;
@@ -10,6 +89,7 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   user-select: none;
+  font-size: var(--font-size, 14px);
 }
 
 /* Custom scrollbar */
@@ -26,6 +106,14 @@ body {
   border-radius: 3px;
 }
 
+.light ::-webkit-scrollbar-thumb {
+  background: #ccc;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
 }

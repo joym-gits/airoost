@@ -46,11 +46,31 @@ function saveTheme(state: { mode: ThemeMode; accent: AccentColor; fontSize: Font
   localStorage.setItem(THEME_KEY, JSON.stringify(state))
 }
 
+function lightenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const r = Math.min(255, (num >> 16) + Math.round(255 * percent / 100))
+  const g = Math.min(255, ((num >> 8) & 0x00FF) + Math.round(255 * percent / 100))
+  const b = Math.min(255, (num & 0x0000FF) + Math.round(255 * percent / 100))
+  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
+}
+
+function darkenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const r = Math.max(0, (num >> 16) - Math.round(255 * percent / 100))
+  const g = Math.max(0, ((num >> 8) & 0x00FF) - Math.round(255 * percent / 100))
+  const b = Math.max(0, (num & 0x0000FF) - Math.round(255 * percent / 100))
+  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
+}
+
 function applyTheme(mode: ThemeMode, accent: AccentColor, fontSize: FontSize): void {
   const root = document.documentElement
 
-  // Accent color CSS variable
-  root.style.setProperty('--accent', ACCENT_COLORS[accent])
+  // Accent color CSS variables
+  const accentHex = ACCENT_COLORS[accent]
+  root.style.setProperty('--accent', accentHex)
+  // Generate lighter and darker variants
+  root.style.setProperty('--accent-light', lightenColor(accentHex, 20))
+  root.style.setProperty('--accent-dark', darkenColor(accentHex, 15))
 
   // Font size
   root.style.setProperty('--font-size', FONT_SIZES[fontSize])
