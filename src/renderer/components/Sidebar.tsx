@@ -101,9 +101,10 @@ export default function Sidebar() {
     setCtxMenu(null)
   }
 
-  const handleAddTag = (convoId: string) => {
-    if (newTagValue.trim()) {
-      addTag(convoId, newTagValue.trim())
+  const handleAddTag = (convoId: string, explicitTag?: string) => {
+    const tag = explicitTag ?? newTagValue.trim()
+    if (tag) {
+      addTag(convoId, tag)
       setNewTagValue('')
     }
   }
@@ -401,7 +402,7 @@ export default function Sidebar() {
             moveToFolder(ctxMenu.convo.id, folderId)
             setCtxMenu(null)
           }}
-          onAddTag={() => handleAddTag(ctxMenu.convo.id)}
+          onAddTag={(explicitTag?: string) => handleAddTag(ctxMenu.convo.id, explicitTag)}
           onRemoveTag={(tag) => removeTag(ctxMenu.convo.id, tag)}
           onExportMd={() => handleExport(ctxMenu.convo.id, 'markdown')}
           onExportTxt={() => handleExport(ctxMenu.convo.id, 'text')}
@@ -430,7 +431,7 @@ function ContextMenu({
   tagRef: React.RefObject<HTMLInputElement>
   onRename: () => void
   onMoveToFolder: (folderId: string | null) => void
-  onAddTag: () => void
+  onAddTag: (explicitTag?: string) => void
   onRemoveTag: (tag: string) => void
   onExportMd: () => void
   onExportTxt: () => void
@@ -491,11 +492,11 @@ function ContextMenu({
                 type="text"
                 value={newTagValue}
                 onChange={(e) => setNewTagValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && onAddTag()}
+                onKeyDown={(e) => e.key === 'Enter' && onAddTag(undefined)}
                 placeholder="#tag"
                 className="flex-1 bg-surface border border-white/10 rounded px-2 py-1 text-[11px] text-white placeholder-gray-600 outline-none"
               />
-              <button onClick={onAddTag} className="text-accent text-[10px]">Add</button>
+              <button onClick={() => onAddTag()} className="text-accent text-[10px]">Add</button>
             </div>
           </div>
           {/* Existing tags on this conversation */}
@@ -507,7 +508,7 @@ function ContextMenu({
           ))}
           {/* Suggest existing tags */}
           {allTags.filter((t) => !convo.tags.includes(t)).slice(0, 5).map((tag) => (
-            <MenuItem key={tag} label={`#${tag}`} onClick={() => { setNewTagValue(tag); onAddTag() }} />
+            <MenuItem key={tag} label={`#${tag}`} onClick={() => onAddTag(tag)} />
           ))}
         </>
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 
 type Tab = 'featured' | 'categories' | 'explore'
@@ -62,6 +63,7 @@ const CATEGORIES = [
 ]
 
 export default function ModelLibraryPage() {
+  const navigate = useNavigate()
   const {
     catalog,
     installedModels,
@@ -72,8 +74,17 @@ export default function ModelLibraryPage() {
     downloadingModel,
     downloadProgress,
     downloadStatus,
-    hardware
+    hardware,
+    setSelectedModel
   } = useAppStore()
+
+  const handleUseModel = (model: CatalogModel) => {
+    const installed = installedModels.find((m) => m.name === model.name || m.id === model.id)
+    if (installed) {
+      setSelectedModel(installed.path, installed.name)
+      navigate('/')
+    }
+  }
 
   const [tab, setTab] = useState<Tab>('featured')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -129,6 +140,7 @@ export default function ModelLibraryPage() {
               downloadStatus={downloadStatus}
               onDownload={() => downloadModel(model.id)}
               onDelete={() => deleteModel(model.id)}
+              onUse={model.installed ? () => handleUseModel(model) : undefined}
             />
           ))}
         </div>
@@ -462,7 +474,8 @@ function ModelCard({
   downloadProgress,
   downloadStatus,
   onDownload,
-  onDelete
+  onDelete,
+  onUse
 }: {
   model: CatalogModel
   downloadingModel: string | null
@@ -470,6 +483,7 @@ function ModelCard({
   downloadStatus: string
   onDownload: () => void
   onDelete: () => void
+  onUse?: () => void
 }) {
   const isDownloading = downloadingModel === model.id
   const compat = model.compatibility
@@ -509,6 +523,11 @@ function ModelCard({
         <div className="shrink-0">
           {model.installed ? (
             <div className="flex items-center gap-2">
+              {onUse && (
+                <button onClick={onUse} className="text-[11px] text-accent bg-accent/10 px-2.5 py-1 rounded-full hover:bg-accent/20 transition-colors">
+                  Use
+                </button>
+              )}
               <span className="text-[11px] text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full">Installed</span>
               {!model.bundled && (
                 <button onClick={onDelete} className="text-[11px] text-gray-600 hover:text-red-400 transition-colors">

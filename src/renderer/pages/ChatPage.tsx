@@ -29,6 +29,7 @@ export default function ChatPage() {
   const [promptLibOpen, setPromptLibOpen] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [exportStatus, setExportStatus] = useState('')
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('airoost_bundled_banner_dismissed') === 'true')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -143,7 +144,6 @@ export default function ChatPage() {
   }
 
   const isBundledModel = selectedModelName?.includes('Phi-3') || selectedModelName?.includes('Bundled')
-  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('airoost_bundled_banner_dismissed') === 'true')
   const dismissBanner = () => {
     localStorage.setItem('airoost_bundled_banner_dismissed', 'true')
     setBannerDismissed(true)
@@ -382,13 +382,22 @@ export default function ChatPage() {
             disabled={noModels || isGenerating}
             className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 outline-none focus:border-accent/50 transition-colors disabled:opacity-50"
           />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || noModels || isGenerating}
-            className="px-5 py-3 bg-accent hover:bg-accent-dark rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
+          {isGenerating ? (
+            <button
+              onClick={() => window.location.reload()}
+              className="px-5 py-3 bg-red-500/80 hover:bg-red-500 rounded-xl text-white text-sm font-medium transition-colors"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || noModels}
+              className="px-5 py-3 bg-accent hover:bg-accent-dark rounded-xl text-white text-sm font-medium transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Send
+            </button>
+          )}
         </div>
       </div>
 

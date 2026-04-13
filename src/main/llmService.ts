@@ -468,10 +468,16 @@ export async function chat(
 
 export async function resetChat(): Promise<void> {
   if (activeContext && loadedModel && activeSequence) {
-    // Erase the sequence to free context space, then create fresh session
-    activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
-    const { LlamaChatSession } = await loadNodeLlamaCpp()
-    activeSession = new LlamaChatSession({ contextSequence: activeSequence })
+    try {
+      // Erase the sequence to free context space, then create fresh session
+      if (activeSequence.nextTokenIndex > 0) {
+        activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
+      }
+      const { LlamaChatSession } = await loadNodeLlamaCpp()
+      activeSession = new LlamaChatSession({ contextSequence: activeSequence })
+    } catch (err) {
+      console.error('resetChat error (non-fatal):', err)
+    }
   }
 }
 
@@ -489,7 +495,9 @@ export async function chatWithContext(
   if (!activeContext || !activeSequence) throw new Error('No active context')
 
   // Erase existing context and create a fresh session with system prompt
-  activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
+  if (activeSequence.nextTokenIndex > 0) {
+    activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
+  }
   const { LlamaChatSession } = await loadNodeLlamaCpp()
   activeSession = new LlamaChatSession({
     contextSequence: activeSequence,

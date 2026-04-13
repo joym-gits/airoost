@@ -281,7 +281,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setActiveConversation: (id) => {
     set({ activeConversationId: id })
-    window.airoost.resetChat()
+    window.airoost.resetChat().catch(() => {})
   },
 
   deleteConversation: (id) => {
@@ -324,15 +324,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
 
     try {
-      const { activePersona } = get()
+      const { activePersona, selectedModelName } = get()
+      const startTime = Date.now()
       const response = activePersona
         ? await window.airoost.chatWithPersona(modelPath, activePersona.systemPrompt, message)
         : await window.airoost.chat(modelPath, message)
+      const elapsed = Date.now() - startTime
+      const tokenEstimate = response.split(/\s+/).length
       const assistantMsg: ChatMessage = { role: 'assistant', content: response, timestamp: Date.now() }
       convo.messages.push(assistantMsg)
       convo.updatedAt = Date.now()
       saveConversations(convos)
       set({ conversations: [...convos] })
+
+      // Record stats
+      window.airoost.recordMessage(selectedModelName ?? 'Unknown', elapsed, tokenEstimate).catch(() => {})
     } catch {
       convo.messages.push({
         role: 'assistant',
