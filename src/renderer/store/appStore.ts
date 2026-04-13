@@ -1,11 +1,16 @@
 import { create } from 'zustand'
 
-// ─── Conversation Types ──────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
+}
+
+export interface Folder {
+  id: string
+  name: string
 }
 
 export interface Conversation {
@@ -17,11 +22,64 @@ export interface Conversation {
   personaId: string | null
   personaName: string | null
   personaEmoji: string | null
+  folderId: string | null
+  tags: string[]
   createdAt: number
   updatedAt: number
 }
 
-// ─── Store ───────────────────────────────────────────────────────
+export interface SearchResult {
+  conversation: Conversation
+  excerpt: string
+  matchStart: number
+  matchEnd: number
+}
+
+// ─── Persistence ────────────────────────────────────────────────
+
+const CONVERSATIONS_KEY = 'airoost_conversations'
+const FOLDERS_KEY = 'airoost_folders'
+
+const DEFAULT_FOLDERS: Folder[] = [
+  { id: 'folder_general', name: 'General' },
+  { id: 'folder_work', name: 'Work' },
+  { id: 'folder_research', name: 'Research' },
+  { id: 'folder_personal', name: 'Personal' }
+]
+
+function loadConversations(): Conversation[] {
+  try {
+    const raw = localStorage.getItem(CONVERSATIONS_KEY)
+    const convos: Conversation[] = raw ? JSON.parse(raw) : []
+    // Migrate old conversations that lack new fields
+    return convos.map((c) => ({
+      ...c,
+      folderId: c.folderId ?? null,
+      tags: c.tags ?? []
+    }))
+  } catch {
+    return []
+  }
+}
+
+function saveConversations(convos: Conversation[]): void {
+  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(convos))
+}
+
+function loadFolders(): Folder[] {
+  try {
+    const raw = localStorage.getItem(FOLDERS_KEY)
+    return raw ? JSON.parse(raw) : DEFAULT_FOLDERS
+  } catch {
+    return DEFAULT_FOLDERS
+  }
+}
+
+function saveFolders(folders: Folder[]): void {
+  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders))
+}
+
+// ─── Store Interface ────────────────────────────────────────────
 
 interface AppState {
   // Models
@@ -41,6 +99,12 @@ interface AppState {
   isGenerating: boolean
   streamingText: string
 
+  // Organisation
+  folders: Folder[]
+  activeFolderId: string | null
+  activeTagFilter: string | null
+  sidebarSearch: string
+
   // Actions - Models
   fetchCatalog: () => Promise<void>
   fetchInstalled: () => Promise<void>
@@ -59,23 +123,30 @@ interface AppState {
   sendMessage: (message: string) => Promise<void>
   regenerateLastResponse: () => Promise<void>
   resetCurrentChat: () => Promise<void>
-  searchConversations: (query: string) => Conversation[]
+
+  // Actions - Conversation Management
+  renameConversation: (id: string, title: string) => void
+  duplicateConversation: (id: string) => void
+  moveToFolder: (convoId: string, folderId: string | null) => void
+  addTag: (convoId: string, tag: string) => void
+  removeTag: (convoId: string, tag: string) => void
+  exportConversation: (id: string, format: 'markdown' | 'text') => string | null
+
+  // Actions - Folders
+  createFolder: (name: string) => void
+  renameFolder: (id: string, name: string) => void
+  deleteFolder: (id: string) => void
+  setActiveFolderId: (id: string | null) => void
+
+  // Actions - Filtering
+  setActiveTagFilter: (tag: string | null) => void
+  setSidebarSearch: (query: string) => void
+  getFilteredConversations: () => Conversation[]
+  searchConversations: (query: string) => SearchResult[]
+  getAllTags: () => string[]
 }
 
-const CONVERSATIONS_KEY = 'airoost_conversations'
-
-function loadConversations(): Conversation[] {
-  try {
-    const raw = localStorage.getItem(CONVERSATIONS_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
-}
-
-function saveConversations(convos: Conversation[]): void {
-  localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(convos))
-}
+// ─── Store Implementation ───────────────────────────────────────
 
 export const useAppStore = create<AppState>((set, get) => ({
   // State
@@ -94,6 +165,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   isGenerating: false,
   streamingText: '',
 
+  folders: loadFolders(),
+  activeFolderId: null,
+  activeTagFilter: null,
+  sidebarSearch: '',
+
   // ─── Model Actions ───────────────────────────────────────────
 
   fetchCatalog: async () => {
@@ -104,7 +180,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchInstalled: async () => {
     const installedModels = await window.airoost.getInstalled()
     set({ installedModels })
-    // Auto-select first model if none selected
     if (!get().selectedModelPath && installedModels.length > 0) {
       set({ selectedModelPath: installedModels[0].path, selectedModelName: installedModels[0].name })
     }
@@ -112,11 +187,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   downloadModel: async (modelId: string) => {
     set({ downloadingModel: modelId, downloadProgress: 0, downloadStatus: 'Starting download...' })
-
     const cleanup = window.airoost.onDownloadProgress(({ modelId: id, percent, status }) => {
       if (id === modelId) set({ downloadProgress: percent, downloadStatus: status })
     })
-
     try {
       await window.airoost.downloadModel(modelId)
       const catalog = await window.airoost.getCatalog()
@@ -153,7 +226,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ─── Chat Actions ────────────────────────────────────────────
 
   createConversation: () => {
-    const { selectedModelPath, selectedModelName, installedModels, activePersona } = get()
+    const { selectedModelPath, selectedModelName, installedModels, activePersona, activeFolderId } = get()
     const modelPath = selectedModelPath ?? installedModels[0]?.path ?? ''
     const modelName = selectedModelName ?? installedModels[0]?.name ?? 'Unknown'
 
@@ -166,6 +239,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       personaId: activePersona?.id ?? null,
       personaName: activePersona?.name ?? null,
       personaEmoji: activePersona?.emoji ?? null,
+      folderId: activeFolderId,
+      tags: [],
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -173,8 +248,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const conversations = [convo, ...get().conversations]
     saveConversations(conversations)
     set({ conversations, activeConversationId: convo.id })
-
-    // Reset llm session for new conversation
     window.airoost.resetChat()
   },
 
@@ -195,7 +268,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const modelPath = selectedModelPath ?? installedModels[0]?.path
     if (!modelPath) return
 
-    // Create conversation if none active
     let convoId = activeConversationId
     let convos = [...conversations]
 
@@ -208,11 +280,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const convo = convos.find((c) => c.id === convoId)
     if (!convo) return
 
-    // Add user message
     const userMsg: ChatMessage = { role: 'user', content: message, timestamp: Date.now() }
     convo.messages.push(userMsg)
 
-    // Update title from first message
     if (convo.messages.length === 1) {
       convo.title = message.slice(0, 50) + (message.length > 50 ? '...' : '')
     }
@@ -236,12 +306,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       saveConversations(convos)
       set({ conversations: [...convos] })
     } catch {
-      const errMsg: ChatMessage = {
+      convo.messages.push({
         role: 'assistant',
         content: 'Sorry, I encountered an error generating a response. Please try again.',
         timestamp: Date.now()
-      }
-      convo.messages.push(errMsg)
+      })
       saveConversations(convos)
       set({ conversations: [...convos] })
     } finally {
@@ -254,20 +323,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { activeConversationId, conversations } = get()
     const convo = conversations.find((c) => c.id === activeConversationId)
     if (!convo || convo.messages.length < 2) return
-
-    // Remove last assistant message
     const lastMsg = convo.messages[convo.messages.length - 1]
     if (lastMsg.role !== 'assistant') return
     convo.messages.pop()
-
-    // Get last user message
     const lastUserMsg = convo.messages[convo.messages.length - 1]
     if (!lastUserMsg || lastUserMsg.role !== 'user') return
-
     saveConversations(conversations)
     set({ conversations: [...conversations] })
-
-    // Re-send
     await window.airoost.resetChat()
     await get().sendMessage(lastUserMsg.content)
   },
@@ -284,12 +346,183 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  searchConversations: (query: string) => {
-    const q = query.toLowerCase()
-    return get().conversations.filter(
-      (c) =>
-        c.title.toLowerCase().includes(q) ||
-        c.messages.some((m) => m.content.toLowerCase().includes(q))
+  // ─── Conversation Management ─────────────────────────────────
+
+  renameConversation: (id, title) => {
+    const convos = get().conversations
+    const convo = convos.find((c) => c.id === id)
+    if (convo) {
+      convo.title = title
+      saveConversations(convos)
+      set({ conversations: [...convos] })
+    }
+  },
+
+  duplicateConversation: (id) => {
+    const convos = get().conversations
+    const original = convos.find((c) => c.id === id)
+    if (!original) return
+    const dup: Conversation = {
+      ...JSON.parse(JSON.stringify(original)),
+      id: `conv_${Date.now()}`,
+      title: `${original.title} (copy)`,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+    const updated = [dup, ...convos]
+    saveConversations(updated)
+    set({ conversations: updated, activeConversationId: dup.id })
+  },
+
+  moveToFolder: (convoId, folderId) => {
+    const convos = get().conversations
+    const convo = convos.find((c) => c.id === convoId)
+    if (convo) {
+      convo.folderId = folderId
+      saveConversations(convos)
+      set({ conversations: [...convos] })
+    }
+  },
+
+  addTag: (convoId, tag) => {
+    const clean = tag.replace(/^#/, '').trim().toLowerCase()
+    if (!clean) return
+    const convos = get().conversations
+    const convo = convos.find((c) => c.id === convoId)
+    if (convo && !convo.tags.includes(clean)) {
+      convo.tags.push(clean)
+      saveConversations(convos)
+      set({ conversations: [...convos] })
+    }
+  },
+
+  removeTag: (convoId, tag) => {
+    const convos = get().conversations
+    const convo = convos.find((c) => c.id === convoId)
+    if (convo) {
+      convo.tags = convo.tags.filter((t) => t !== tag)
+      saveConversations(convos)
+      set({ conversations: [...convos] })
+    }
+  },
+
+  exportConversation: (id, format) => {
+    const convo = get().conversations.find((c) => c.id === id)
+    if (!convo) return null
+
+    if (format === 'markdown') {
+      const lines = [`# ${convo.title}\n`]
+      lines.push(`*Model: ${convo.modelId}*`)
+      if (convo.personaName) lines.push(`*Persona: ${convo.personaEmoji ?? ''} ${convo.personaName}*`)
+      lines.push(`*Date: ${new Date(convo.createdAt).toLocaleString()}*\n---\n`)
+      for (const msg of convo.messages) {
+        const label = msg.role === 'user' ? '**You**' : '**AI**'
+        lines.push(`${label}: ${msg.content}\n`)
+      }
+      return lines.join('\n')
+    }
+
+    // Plain text
+    const lines = [convo.title, '']
+    for (const msg of convo.messages) {
+      const label = msg.role === 'user' ? 'You' : 'AI'
+      lines.push(`${label}: ${msg.content}`, '')
+    }
+    return lines.join('\n')
+  },
+
+  // ─── Folders ──────────────────────────────────────────────────
+
+  createFolder: (name) => {
+    const folder: Folder = { id: `folder_${Date.now()}`, name }
+    const folders = [...get().folders, folder]
+    saveFolders(folders)
+    set({ folders })
+  },
+
+  renameFolder: (id, name) => {
+    const folders = get().folders.map((f) => (f.id === id ? { ...f, name } : f))
+    saveFolders(folders)
+    set({ folders })
+  },
+
+  deleteFolder: (id) => {
+    // Move conversations out of deleted folder
+    const convos = get().conversations.map((c) =>
+      c.folderId === id ? { ...c, folderId: null } : c
     )
+    saveConversations(convos)
+    const folders = get().folders.filter((f) => f.id !== id)
+    saveFolders(folders)
+    const activeFolderId = get().activeFolderId === id ? null : get().activeFolderId
+    set({ folders, conversations: convos, activeFolderId })
+  },
+
+  setActiveFolderId: (id) => set({ activeFolderId: id, activeTagFilter: null }),
+
+  // ─── Filtering & Search ──────────────────────────────────────
+
+  setActiveTagFilter: (tag) => set({ activeTagFilter: tag, activeFolderId: null }),
+
+  setSidebarSearch: (query) => set({ sidebarSearch: query }),
+
+  getFilteredConversations: () => {
+    const { conversations, activeFolderId, activeTagFilter, sidebarSearch } = get()
+    let result = conversations
+
+    if (activeFolderId) {
+      result = result.filter((c) => c.folderId === activeFolderId)
+    }
+
+    if (activeTagFilter) {
+      result = result.filter((c) => c.tags.includes(activeTagFilter))
+    }
+
+    if (sidebarSearch.trim()) {
+      const q = sidebarSearch.toLowerCase()
+      result = result.filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) ||
+          c.tags.some((t) => t.includes(q)) ||
+          c.messages.some((m) => m.content.toLowerCase().includes(q))
+      )
+    }
+
+    return result.sort((a, b) => b.updatedAt - a.updatedAt)
+  },
+
+  searchConversations: (query: string) => {
+    if (!query.trim()) return []
+    const q = query.toLowerCase()
+    const results: SearchResult[] = []
+
+    for (const convo of get().conversations) {
+      // Search in title
+      if (convo.title.toLowerCase().includes(q)) {
+        results.push({ conversation: convo, excerpt: convo.title, matchStart: convo.title.toLowerCase().indexOf(q), matchEnd: convo.title.toLowerCase().indexOf(q) + q.length })
+        continue
+      }
+      // Search in messages
+      for (const msg of convo.messages) {
+        const idx = msg.content.toLowerCase().indexOf(q)
+        if (idx !== -1) {
+          const start = Math.max(0, idx - 40)
+          const end = Math.min(msg.content.length, idx + q.length + 40)
+          const excerpt = (start > 0 ? '...' : '') + msg.content.slice(start, end) + (end < msg.content.length ? '...' : '')
+          results.push({ conversation: convo, excerpt, matchStart: idx - start + (start > 0 ? 3 : 0), matchEnd: idx - start + q.length + (start > 0 ? 3 : 0) })
+          break
+        }
+      }
+    }
+
+    return results
+  },
+
+  getAllTags: () => {
+    const tags = new Set<string>()
+    for (const c of get().conversations) {
+      for (const t of c.tags) tags.add(t)
+    }
+    return [...tags].sort()
   }
 }))
