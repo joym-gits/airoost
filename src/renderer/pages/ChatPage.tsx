@@ -1,8 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
-import { useVoiceStore } from '../store/voiceStore'
-import * as voiceSvc from '../services/voiceService'
 import PromptLibrary from '../components/PromptLibrary'
 
 export default function ChatPage() {
@@ -28,12 +26,8 @@ export default function ChatPage() {
   const [promptLibOpen, setPromptLibOpen] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [exportStatus, setExportStatus] = useState('')
-  const [micRecording, setMicRecording] = useState(false)
-  const [micTranscribing, setMicTranscribing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const micRecorderRef = useRef<ReturnType<typeof voiceSvc.startRecording> | null>(null)
-  const vs = useVoiceStore()
 
   const activeConvo = conversations.find((c) => c.id === activeConversationId)
   const messages = activeConvo?.messages ?? []
@@ -59,46 +53,6 @@ export default function ChatPage() {
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [showExportMenu])
-
-  // ─── Mic Handlers ──────────────────────────────────────────
-  const handleMicDown = useCallback(() => {
-    if (micRecording || !vs.whisperLoaded) return
-    setMicRecording(true)
-    vs.setVoiceActive(true)
-    const recorder = voiceSvc.startRecording(vs.settings.inputDeviceId || undefined)
-    micRecorderRef.current = recorder
-  }, [micRecording, vs])
-
-  const handleMicUp = useCallback(async () => {
-    if (!micRecorderRef.current) return
-    setMicRecording(false)
-    setMicTranscribing(true)
-    vs.setVoiceActive(false)
-
-    try {
-      const audioData = await micRecorderRef.current.stop()
-      micRecorderRef.current = null
-      const text = await voiceSvc.transcribe(audioData, vs.settings.language)
-      setMicTranscribing(false)
-
-      if (text.trim()) {
-        setInput(text)
-        inputRef.current?.focus()
-
-        // Auto-send after 1 second if enabled
-        if (vs.settings.autoSend) {
-          setTimeout(() => {
-            const store = useAppStore.getState()
-            if (!store.activeConversationId) store.createConversation()
-            store.sendMessage(text)
-            setInput('')
-          }, 1000)
-        }
-      }
-    } catch {
-      setMicTranscribing(false)
-    }
-  }, [vs])
 
   const handleSend = async () => {
     if (!input.trim() || isGenerating || noModels) return
@@ -374,33 +328,14 @@ export default function ChatPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
             </svg>
           </button>
-          {/* Mic button */}
-          <button
-            onMouseDown={handleMicDown}
-            onMouseUp={handleMicUp}
-            onMouseLeave={() => { if (micRecording) handleMicUp() }}
-            disabled={!vs.whisperLoaded || micTranscribing || isGenerating}
-            className={`shrink-0 px-3 py-3 border rounded-xl transition-all ${
-              micRecording
-                ? 'bg-red-500/20 border-red-500 text-red-400 scale-105'
-                : micTranscribing
-                  ? 'bg-surface border-white/10 text-accent animate-pulse'
-                  : 'bg-surface border-white/10 text-gray-500 hover:text-accent hover:border-accent/30'
-            } disabled:opacity-30`}
-            title={micRecording ? 'Release to transcribe' : micTranscribing ? 'Transcribing...' : vs.whisperLoaded ? 'Hold to speak' : 'Loading Whisper...'}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-            </svg>
-          </button>
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder={micRecording ? 'Listening...' : micTranscribing ? 'Transcribing...' : noModels ? 'Download a model first...' : 'Type a message...'}
-            disabled={noModels || isGenerating || micRecording}
+            placeholder={noModels ? 'Download a model first...' : 'Type a message...'}
+            disabled={noModels || isGenerating}
             className="flex-1 bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 outline-none focus:border-accent/50 transition-colors disabled:opacity-50"
           />
           <button

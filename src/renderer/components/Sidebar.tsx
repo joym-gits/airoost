@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore, type Conversation } from '../store/appStore'
-import { useVoiceStore } from '../store/voiceStore'
 
 const navItems = [
   { path: '/', label: 'Chat', icon: ChatIcon },
@@ -16,8 +15,6 @@ export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const store = useAppStore()
-  const { voiceActive } = useVoiceStore()
-
   const {
     activeConversationId,
     setActiveConversation,
@@ -368,14 +365,8 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Footer — active model + voice indicator */}
+      {/* Footer — active model */}
       <div className="p-4 border-t border-white/5">
-        {voiceActive && (
-          <div className="flex items-center gap-2 mb-2 px-2 py-1 rounded-lg bg-red-500/10">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-            <span className="text-[11px] text-red-400 font-medium">Voice Active</span>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
           <span className="text-[11px] text-gray-500 truncate">
