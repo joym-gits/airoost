@@ -9,6 +9,16 @@ interface Window {
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
     getFilePath: (file: File) => string
+    kbGetAll: () => Promise<KnowledgeBaseData[]>
+    kbGet: (id: string) => Promise<KnowledgeBaseData | null>
+    kbGetDocs: (id: string) => Promise<KBDocumentData[]>
+    kbCreate: (name: string, sourcePath: string) => Promise<KnowledgeBaseData>
+    kbReindex: (id: string) => Promise<KnowledgeBaseData | null>
+    kbDelete: (id: string) => Promise<void>
+    kbSearch: (kbId: string, query: string) => Promise<KBSearchResultData[]>
+    kbChat: (modelPath: string, kbId: string, message: string) => Promise<{ response: string; sources: KBSearchResultData[] }>
+    kbSelectFolder: () => Promise<string | null>
+    onKBIndexProgress: (callback: (data: { processed: number; total: number; currentFile: string }) => void) => () => void
     compareChat: (modelPathA: string, modelPathB: string, message: string) => Promise<{ responseA: string; responseB: string }>
     onCompareToken: (callback: (data: { side: 'A' | 'B'; token: string }) => void) => () => void
     exportPDF: (data: any) => Promise<string | null>
@@ -33,6 +43,31 @@ interface Window {
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface KnowledgeBaseData {
+  id: string
+  name: string
+  sourcePath: string
+  documentCount: number
+  chunkCount: number
+  indexSizeBytes: number
+  createdAt: number
+  updatedAt: number
+}
+
+interface KBDocumentData {
+  filename: string
+  path: string
+  chunkCount: number
+  sizeBytes: number
+}
+
+interface KBSearchResultData {
+  text: string
+  score: number
+  source: string
+  chunkIndex: number
 }
 
 interface PromptData {

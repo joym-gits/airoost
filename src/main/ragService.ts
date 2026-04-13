@@ -1,0 +1,400 @@
+import { app } from 'electron'
+import { join } from 'path'
+import {
+  existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync,
+  statSync, unlinkSync, rmdirSync
+} from 'fs'
+import { extname, basename } from 'path'
+
+// ─── Types ───────────────────────────────────────────────────────
+
+export interface KnowledgeBase {
+  id: string
+  name: string
+  sourcePath: string
+  documentCount: number
+  chunkCount: number
+  indexSizeBytes: number
+  createdAt: number
+  updatedAt: number
+}
+
+export interface KBDocument {
+  filename: string
+  path: string
+  chunkCount: number
+  sizeBytes: number
+}
+
+export interface KBSearchResult {
+  text: string
+  score: number
+  source: string
+  chunkIndex: number
+}
+
+interface ChunkMeta {
+  source: string
+  chunkIndex: number
+  totalChunks: number
+}
+
+// ─── Paths ───────────────────────────────────────────────────────
+
+let _kbDir: string | null = null
+function getKBDir(): string {
+  if (!_kbDir) {
+    _kbDir = join(app.getPath('userData'), 'knowledge-bases')
+    if (!existsSync(_kbDir)) mkdirSync(_kbDir, { recursive: true })
+  }
+  return _kbDir
+}
+
+function getKBPath(kbId: string): string {
+  return join(getKBDir(), kbId)
+}
+
+function getKBMetaFile(): string {
+  return join(getKBDir(), 'kb-index.json')
+}
+
+// ─── KB Registry ─────────────────────────────────────────────────
+
+function loadKBRegistry(): KnowledgeBase[] {
+  const file = getKBMetaFile()
+  if (!existsSync(file)) return []
+  try { return JSON.parse(readFileSync(file, 'utf-8')) } catch { return [] }
+}
+
+function saveKBRegistry(kbs: KnowledgeBase[]): void {
+  writeFileSync(getKBMetaFile(), JSON.stringify(kbs, null, 2))
+}
+
+export function getAllKnowledgeBases(): KnowledgeBase[] {
+  return loadKBRegistry()
+}
+
+export function getKnowledgeBase(id: string): KnowledgeBase | null {
+  return loadKBRegistry().find((kb) => kb.id === id) ?? null
+}
+
+// ─── Text Extraction ─────────────────────────────────────────────
+
+const SUPPORTED_EXTS = ['.pdf', '.docx', '.txt', '.md']
+
+async function extractText(filePath: string): Promise<string> {
+  const ext = extname(filePath).toLowerCase()
+  switch (ext) {
+    case '.pdf': {
+      const pdfMod = await (Function('m', 'return import(m)')('pdf-parse'))
+      const pdfParse = pdfMod.default ?? pdfMod
+      const buffer = readFileSync(filePath)
+      const data = await pdfParse(buffer)
+      return data.text ?? ''
+    }
+    case '.docx': {
+      const mammoth = await (Function('m', 'return import(m)')('mammoth'))
+      const buffer = readFileSync(filePath)
+      const result = await mammoth.extractRawText({ buffer })
+      return result.value ?? ''
+    }
+    case '.txt':
+    case '.md':
+      return readFileSync(filePath, 'utf-8')
+    default:
+      return ''
+  }
+}
+
+// ─── Chunking ────────────────────────────────────────────────────
+
+function chunkText(text: string, chunkSize: number = 500, overlap: number = 50): string[] {
+  const words = text.split(/\s+/)
+  if (words.length <= chunkSize) return [text]
+
+  const chunks: string[] = []
+  let i = 0
+  while (i < words.length) {
+    const end = Math.min(i + chunkSize, words.length)
+    chunks.push(words.slice(i, end).join(' '))
+    i += chunkSize - overlap
+  }
+  return chunks
+}
+
+// ─── Embeddings ──────────────────────────────────────────────────
+
+let embeddingPipeline: any = null
+
+async function getEmbeddingPipeline(): Promise<any> {
+  if (embeddingPipeline) return embeddingPipeline
+  const { pipeline } = await (Function('m', 'return import(m)')('@huggingface/transformers'))
+  embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+    dtype: 'fp32'
+  })
+  return embeddingPipeline
+}
+
+async function embed(text: string): Promise<number[]> {
+  const pipe = await getEmbeddingPipeline()
+  const result = await pipe(text, { pooling: 'mean', normalize: true })
+  return Array.from(result.data as Float32Array).slice(0, 384) // MiniLM outputs 384 dims
+}
+
+// ─── Vector Store (simple JSON-based) ────────────────────────────
+
+interface VectorEntry {
+  vector: number[]
+  text: string
+  meta: ChunkMeta
+}
+
+function getVectorStorePath(kbId: string): string {
+  return join(getKBPath(kbId), 'vectors.json')
+}
+
+function loadVectorStore(kbId: string): VectorEntry[] {
+  const file = getVectorStorePath(kbId)
+  if (!existsSync(file)) return []
+  try { return JSON.parse(readFileSync(file, 'utf-8')) } catch { return [] }
+}
+
+function saveVectorStore(kbId: string, entries: VectorEntry[]): void {
+  const dir = getKBPath(kbId)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(getVectorStorePath(kbId), JSON.stringify(entries))
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0, magA = 0, magB = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    magA += a[i] * a[i]
+    magB += b[i] * b[i]
+  }
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB) + 1e-8)
+}
+
+// ─── Create & Index ──────────────────────────────────────────────
+
+export async function createKnowledgeBase(
+  name: string,
+  sourcePath: string,
+  onProgress: (processed: number, total: number, currentFile: string) => void
+): Promise<KnowledgeBase> {
+  const kbId = `kb_${Date.now()}`
+  const kbPath = getKBPath(kbId)
+  mkdirSync(kbPath, { recursive: true })
+
+  // Find all supported files
+  const files = findFiles(sourcePath)
+  const allEntries: VectorEntry[] = []
+  let totalChunks = 0
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    onProgress(i, files.length, basename(file))
+
+    try {
+      const text = await extractText(file)
+      if (!text.trim()) continue
+
+      const chunks = chunkText(text)
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const vector = await embed(chunks[ci])
+        allEntries.push({
+          vector,
+          text: chunks[ci],
+          meta: { source: basename(file), chunkIndex: ci, totalChunks: chunks.length }
+        })
+        totalChunks++
+      }
+    } catch (err) {
+      console.error(`RAG: failed to index ${file}:`, err)
+    }
+  }
+
+  onProgress(files.length, files.length, 'Done')
+
+  saveVectorStore(kbId, allEntries)
+
+  const indexSize = existsSync(getVectorStorePath(kbId))
+    ? statSync(getVectorStorePath(kbId)).size
+    : 0
+
+  const kb: KnowledgeBase = {
+    id: kbId,
+    name,
+    sourcePath,
+    documentCount: files.length,
+    chunkCount: totalChunks,
+    indexSizeBytes: indexSize,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+
+  const registry = loadKBRegistry()
+  registry.push(kb)
+  saveKBRegistry(registry)
+
+  return kb
+}
+
+function findFiles(dirPath: string): string[] {
+  const results: string[] = []
+  try {
+    const entries = readdirSync(dirPath, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = join(dirPath, entry.name)
+      if (entry.isDirectory()) {
+        results.push(...findFiles(fullPath))
+      } else if (SUPPORTED_EXTS.includes(extname(entry.name).toLowerCase())) {
+        results.push(fullPath)
+      }
+    }
+  } catch {
+    // Permission error, skip
+  }
+  return results
+}
+
+// ─── Search ──────────────────────────────────────────────────────
+
+export async function searchKnowledgeBase(
+  kbId: string,
+  query: string,
+  topK: number = 5
+): Promise<KBSearchResult[]> {
+  const entries = loadVectorStore(kbId)
+  if (entries.length === 0) return []
+
+  const queryVector = await embed(query)
+
+  const scored = entries.map((entry) => ({
+    ...entry,
+    score: cosineSimilarity(queryVector, entry.vector)
+  }))
+
+  scored.sort((a, b) => b.score - a.score)
+
+  return scored.slice(0, topK).map((s) => ({
+    text: s.text,
+    score: s.score,
+    source: s.meta.source,
+    chunkIndex: s.meta.chunkIndex
+  }))
+}
+
+// ─── Build Context ───────────────────────────────────────────────
+
+export function buildRAGContext(results: KBSearchResult[]): string {
+  if (results.length === 0) return ''
+
+  const sections = results.map((r, i) =>
+    `[Source ${i + 1}: ${r.source}]\n${r.text}`
+  )
+
+  return [
+    'Use the following knowledge base excerpts to answer the question.',
+    'Cite the source document when referencing information.',
+    'If the answer is not in the excerpts, say so clearly.',
+    '',
+    '--- KNOWLEDGE BASE EXCERPTS ---',
+    ...sections,
+    '--- END EXCERPTS ---'
+  ].join('\n')
+}
+
+// ─── Management ──────────────────────────────────────────────────
+
+export function getKBDocuments(kbId: string): KBDocument[] {
+  const entries = loadVectorStore(kbId)
+  const docMap = new Map<string, { chunkCount: number }>()
+
+  for (const entry of entries) {
+    const existing = docMap.get(entry.meta.source)
+    if (existing) {
+      existing.chunkCount++
+    } else {
+      docMap.set(entry.meta.source, { chunkCount: 1 })
+    }
+  }
+
+  return [...docMap.entries()].map(([filename, data]) => ({
+    filename,
+    path: filename,
+    chunkCount: data.chunkCount,
+    sizeBytes: 0
+  }))
+}
+
+export async function reindexKnowledgeBase(
+  kbId: string,
+  onProgress: (processed: number, total: number, currentFile: string) => void
+): Promise<KnowledgeBase | null> {
+  const kb = getKnowledgeBase(kbId)
+  if (!kb) return null
+
+  // Re-index from source path
+  const files = findFiles(kb.sourcePath)
+  const allEntries: VectorEntry[] = []
+  let totalChunks = 0
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    onProgress(i, files.length, basename(file))
+
+    try {
+      const text = await extractText(file)
+      if (!text.trim()) continue
+
+      const chunks = chunkText(text)
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const vector = await embed(chunks[ci])
+        allEntries.push({
+          vector,
+          text: chunks[ci],
+          meta: { source: basename(file), chunkIndex: ci, totalChunks: chunks.length }
+        })
+        totalChunks++
+      }
+    } catch {
+      // Skip failed files
+    }
+  }
+
+  onProgress(files.length, files.length, 'Done')
+  saveVectorStore(kbId, allEntries)
+
+  const indexSize = existsSync(getVectorStorePath(kbId))
+    ? statSync(getVectorStorePath(kbId)).size
+    : 0
+
+  // Update registry
+  const registry = loadKBRegistry()
+  const idx = registry.findIndex((r) => r.id === kbId)
+  if (idx !== -1) {
+    registry[idx].documentCount = files.length
+    registry[idx].chunkCount = totalChunks
+    registry[idx].indexSizeBytes = indexSize
+    registry[idx].updatedAt = Date.now()
+    saveKBRegistry(registry)
+    return registry[idx]
+  }
+
+  return null
+}
+
+export function deleteKnowledgeBase(kbId: string): void {
+  // Remove vector store
+  const kbPath = getKBPath(kbId)
+  if (existsSync(kbPath)) {
+    const files = readdirSync(kbPath)
+    for (const f of files) unlinkSync(join(kbPath, f))
+    rmdirSync(kbPath)
+  }
+
+  // Remove from registry
+  const registry = loadKBRegistry().filter((kb) => kb.id !== kbId)
+  saveKBRegistry(registry)
+}

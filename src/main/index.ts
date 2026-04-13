@@ -18,6 +18,10 @@ import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
 import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
 import { getAllPrompts, createPrompt, updatePrompt, deletePrompt, toggleFavourite } from './promptLibraryService'
+import {
+  getAllKnowledgeBases, getKnowledgeBase, createKnowledgeBase, deleteKnowledgeBase,
+  reindexKnowledgeBase, searchKnowledgeBase, buildRAGContext, getKBDocuments
+} from './ragService'
 import { exportToPDF, exportToDOCX, exportToMarkdown, exportToText } from './exportService'
 
 function createWindow(): void {
@@ -221,6 +225,50 @@ ipcMain.handle('export:markdown', (_event, data: any) => {
 
 ipcMain.handle('export:text', (_event, data: any) => {
   return exportToText(data)
+})
+
+// Knowledge Bases (RAG)
+ipcMain.handle('kb:get-all', () => getAllKnowledgeBases())
+ipcMain.handle('kb:get', (_e, id: string) => getKnowledgeBase(id))
+ipcMain.handle('kb:get-docs', (_e, id: string) => getKBDocuments(id))
+
+ipcMain.handle('kb:create', async (event, name: string, sourcePath: string) => {
+  return createKnowledgeBase(name, sourcePath, (processed, total, currentFile) => {
+    event.sender.send('kb:index-progress', { processed, total, currentFile })
+  })
+})
+
+ipcMain.handle('kb:reindex', async (event, id: string) => {
+  return reindexKnowledgeBase(id, (processed, total, currentFile) => {
+    event.sender.send('kb:index-progress', { processed, total, currentFile })
+  })
+})
+
+ipcMain.handle('kb:delete', (_e, id: string) => deleteKnowledgeBase(id))
+
+ipcMain.handle('kb:search', async (_e, kbId: string, query: string) => {
+  return searchKnowledgeBase(kbId, query, 5)
+})
+
+ipcMain.handle('kb:chat', async (event, modelPath: string, kbId: string, message: string) => {
+  const results = await searchKnowledgeBase(kbId, message, 5)
+  const context = buildRAGContext(results)
+
+  let full = ''
+  const response = await chatWithContext(modelPath, context, message, (token) => {
+    full += token
+    event.sender.send('llm:chat-token', { token, partial: full })
+  })
+  return { response, sources: results }
+})
+
+ipcMain.handle('kb:select-folder', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory'],
+    title: 'Select folder for Knowledge Base'
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
 })
 
 // Prompt Library

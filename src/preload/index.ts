@@ -39,6 +39,22 @@ const api = {
   // File path helper (Electron's modern API for drag-drop)
   getFilePath: (file: File) => webUtils.getPathForFile(file),
 
+  // Knowledge Bases (RAG)
+  kbGetAll: () => ipcRenderer.invoke('kb:get-all'),
+  kbGet: (id: string) => ipcRenderer.invoke('kb:get', id),
+  kbGetDocs: (id: string) => ipcRenderer.invoke('kb:get-docs', id),
+  kbCreate: (name: string, sourcePath: string) => ipcRenderer.invoke('kb:create', name, sourcePath),
+  kbReindex: (id: string) => ipcRenderer.invoke('kb:reindex', id),
+  kbDelete: (id: string) => ipcRenderer.invoke('kb:delete', id),
+  kbSearch: (kbId: string, query: string) => ipcRenderer.invoke('kb:search', kbId, query),
+  kbChat: (modelPath: string, kbId: string, message: string) => ipcRenderer.invoke('kb:chat', modelPath, kbId, message),
+  kbSelectFolder: () => ipcRenderer.invoke('kb:select-folder'),
+  onKBIndexProgress: (callback: (data: { processed: number; total: number; currentFile: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: { processed: number; total: number; currentFile: string }) => callback(data)
+    ipcRenderer.on('kb:index-progress', handler)
+    return () => ipcRenderer.removeListener('kb:index-progress', handler)
+  },
+
   // Compare
   compareChat: (modelPathA: string, modelPathB: string, message: string) =>
     ipcRenderer.invoke('llm:compare', modelPathA, modelPathB, message),
