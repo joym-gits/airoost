@@ -100,7 +100,7 @@ export default function SettingsPage() {
         {/* About */}
         {/* Voice */}
         <Section title="Voice">
-          <Row label="Whisper Model" value={whisperLoaded ? 'Loaded (whisper-tiny)' : 'Not loaded — opens on Voice page'} />
+          <Row label="Whisper Model" value={whisperLoaded ? 'Loaded (whisper-base)' : 'Not loaded — opens on Voice page'} />
 
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-400">Input device</span>

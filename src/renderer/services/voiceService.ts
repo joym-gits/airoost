@@ -26,7 +26,7 @@ export async function loadWhisperPipeline(
 
     whisperPipeline = await pipeline(
       'automatic-speech-recognition',
-      'onnx-community/whisper-tiny',
+      'onnx-community/whisper-base',
       {
         dtype: 'q8',
         device: 'auto',
@@ -158,6 +158,40 @@ export function startRecording(
 }
 
 /**
+ * Find the best natural-sounding voice available on the system.
+ * Prefers enhanced/premium voices, then English voices, then default.
+ */
+function pickBestVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length === 0) return null
+
+  // Preferred natural voices on macOS (sorted by quality)
+  const preferred = [
+    'Samantha', 'Karen', 'Daniel', 'Zoe', 'Alex',
+    'Moira', 'Tessa', 'Fiona', 'Rishi'
+  ]
+
+  // Try preferred voices first
+  for (const name of preferred) {
+    const match = voices.find((v) => v.name.includes(name) && v.lang.startsWith('en'))
+    if (match) return match
+  }
+
+  // Try any English voice with "enhanced" or "premium" in the name
+  const enhanced = voices.find((v) =>
+    v.lang.startsWith('en') &&
+    (v.name.toLowerCase().includes('enhanced') || v.name.toLowerCase().includes('premium'))
+  )
+  if (enhanced) return enhanced
+
+  // Any English voice
+  const english = voices.find((v) => v.lang.startsWith('en'))
+  if (english) return english
+
+  return voices[0]
+}
+
+/**
  * Speak text using the system's built-in TTS.
  */
 export function speak(
@@ -172,6 +206,10 @@ export function speak(
     const voices = window.speechSynthesis.getVoices()
     const voice = voices.find((v) => v.voiceURI === voiceURI)
     if (voice) utterance.voice = voice
+  } else {
+    // Auto-select a natural voice if none specified
+    const best = pickBestVoice()
+    if (best) utterance.voice = best
   }
 
   window.speechSynthesis.speak(utterance)
