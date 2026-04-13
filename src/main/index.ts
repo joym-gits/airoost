@@ -11,7 +11,8 @@ import {
   detectHardware,
   getModelsDir,
   loadModel,
-  compareChat
+  compareChat,
+  copyBundledModel
 } from './llmService'
 import { searchModels, downloadHFModel } from './huggingfaceService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
@@ -327,17 +328,28 @@ app.whenReady().then(async () => {
   // Auto-updater (silent check)
   if (mainWindow) initAutoUpdater(mainWindow)
 
+  // Copy bundled model on first launch (with progress to renderer)
+  copyBundledModel((percent, status) => {
+    mainWindow?.webContents.send('setup:progress', { percent, status })
+  })
+
   // Init LLM engine and pre-load first installed model in background
+  mainWindow?.webContents.send('setup:progress', { percent: 0, status: 'Loading AI engine...' })
   initLlama()
     .then(async () => {
       const installed = getInstalledModels()
       if (installed.length > 0) {
+        mainWindow?.webContents.send('setup:progress', { percent: 50, status: `Loading ${installed[0].name}...` })
         console.log('Pre-loading model:', installed[0].name)
         await loadModel(installed[0].path)
         console.log('Model ready:', installed[0].name)
       }
+      mainWindow?.webContents.send('setup:complete')
     })
-    .catch((err) => console.error('LLM engine init deferred:', err))
+    .catch((err) => {
+      console.error('LLM engine init deferred:', err)
+      mainWindow?.webContents.send('setup:complete')
+    })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

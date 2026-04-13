@@ -9,6 +9,8 @@ interface Window {
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
     getFilePath: (file: File) => string
+    onSetupProgress: (callback: (data: { percent: number; status: string }) => void) => () => void
+    onSetupComplete: (callback: () => void) => () => void
     downloadUpdate: () => Promise<void>
     installUpdate: () => Promise<void>
     onUpdateAvailable: (callback: (data: { version: string }) => void) => () => void

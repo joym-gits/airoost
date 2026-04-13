@@ -12,6 +12,7 @@ import DashboardPage from './pages/DashboardPage'
 import OnboardingTour from './components/OnboardingTour'
 import ShortcutsModal from './components/ShortcutsModal'
 import UpdateBanner from './components/UpdateBanner'
+import SetupScreen from './components/SetupScreen'
 import { useAppStore } from './store/appStore'
 import { useThemeStore } from './store/themeStore'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -22,6 +23,7 @@ export default function App() {
   const _theme = useThemeStore() // Initialize theme on mount
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [setupDone, setSetupDone] = useState(false)
 
   useEffect(() => {
     fetchInstalled()
@@ -67,6 +69,7 @@ export default function App() {
       </main>
 
       {/* Global overlays */}
+      {!setupDone && <SetupScreen onComplete={() => setSetupDone(true)} />}
       <UpdateBanner />
       <OnboardingTour />
       <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

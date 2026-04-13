@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream, copyFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream } from 'fs'
 import { execSync } from 'child_process'
 import os from 'os'
 import https from 'https'
@@ -45,14 +45,14 @@ export interface CatalogEntry {
 export const MODEL_CATALOG: CatalogEntry[] = [
   // ── Bundled Default ──
   {
-    id: 'phi-3-mini',
-    name: 'Phi-3 Mini',
+    id: 'phi-3-mini-bundled',
+    name: 'Phi-3 Mini (Bundled)',
     description: 'Microsoft\'s compact powerhouse. Ships with Airoost — ready instantly.',
-    size: '2.2 GB',
-    sizeBytes: 2_300_000_000,
+    size: '2.4 GB',
+    sizeBytes: 2_400_000_000,
     ramRequired: 4,
     url: 'https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf',
-    filename: 'Phi-3-mini-4k-instruct-q4.gguf',
+    filename: 'bundled-model.gguf',
     category: ['general', 'lightweight'],
     featured: true,
     author: 'Microsoft',
@@ -249,26 +249,74 @@ function ensureModelsDir(): void {
 
 /**
  * Copy bundled model from app resources to user's models folder on first launch.
+ * Sends progress events to the renderer for the loading screen.
  */
-function copyBundledModel(): void {
+export function copyBundledModel(onProgress?: (percent: number, status: string) => void): boolean {
   ensureModelsDir()
-  const bundledDir = join(process.resourcesPath, 'models')
-  if (!existsSync(bundledDir)) return
 
-  const files = readdirSync(bundledDir).filter((f) => f.endsWith('.gguf'))
-  for (const file of files) {
-    const dest = join(getModelsDirPath(), file)
-    if (!existsSync(dest)) {
-      console.log('Copying bundled model:', file)
-      copyFileSync(join(bundledDir, file), dest)
-      console.log('Bundled model ready:', file)
+  // Check multiple possible locations for bundled models
+  const possibleDirs = [
+    join(process.resourcesPath, 'models'),
+    join(app.getAppPath(), 'resources', 'models'),
+    join(app.getAppPath(), '..', 'resources', 'models')
+  ]
+
+  let bundledDir: string | null = null
+  for (const dir of possibleDirs) {
+    if (existsSync(dir)) {
+      const ggufFiles = readdirSync(dir).filter((f) => f.endsWith('.gguf'))
+      if (ggufFiles.length > 0) {
+        bundledDir = dir
+        break
+      }
     }
   }
+
+  if (!bundledDir) {
+    onProgress?.(100, 'No bundled model found')
+    return false
+  }
+
+  const files = readdirSync(bundledDir).filter((f) => f.endsWith('.gguf'))
+  let copied = false
+
+  for (const file of files) {
+    const src = join(bundledDir, file)
+    const dest = join(getModelsDirPath(), file)
+    if (!existsSync(dest)) {
+      onProgress?.(10, `Setting up ${file}...`)
+      console.log('Copying bundled model:', file)
+
+      // Copy with progress (chunked for large files)
+      const srcSize = statSync(src).size
+      const srcFd = require('fs').openSync(src, 'r')
+      const destFd = require('fs').openSync(dest, 'w')
+      const bufSize = 1024 * 1024 // 1MB chunks
+      const buf = Buffer.alloc(bufSize)
+      let bytesCopied = 0
+
+      while (true) {
+        const bytesRead = require('fs').readSync(srcFd, buf, 0, bufSize, null)
+        if (bytesRead === 0) break
+        require('fs').writeSync(destFd, buf, 0, bytesRead)
+        bytesCopied += bytesRead
+        const percent = Math.round((bytesCopied / srcSize) * 90) + 10 // 10-100%
+        onProgress?.(percent, `Copying model: ${(bytesCopied / 1e6).toFixed(0)} / ${(srcSize / 1e6).toFixed(0)} MB`)
+      }
+
+      require('fs').closeSync(srcFd)
+      require('fs').closeSync(destFd)
+      console.log('Bundled model ready:', file)
+      copied = true
+    }
+  }
+
+  onProgress?.(100, 'Ready')
+  return copied
 }
 
 export async function initLlama(): Promise<void> {
   ensureModelsDir()
-  copyBundledModel()
   const { getLlama } = await loadNodeLlamaCpp()
   llamaInstance = await getLlama()
 }

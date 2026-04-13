@@ -142,7 +142,12 @@ export default function ChatPage() {
     setTimeout(() => setExportStatus(''), 2000)
   }
 
-  const isBundledModel = selectedModelName?.includes('Phi-3')
+  const isBundledModel = selectedModelName?.includes('Phi-3') || selectedModelName?.includes('Bundled')
+  const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem('airoost_bundled_banner_dismissed') === 'true')
+  const dismissBanner = () => {
+    localStorage.setItem('airoost_bundled_banner_dismissed', 'true')
+    setBannerDismissed(true)
+  }
 
   // Render compare mode (after ALL hooks)
   if (compareMode) return <CompareView />
@@ -230,13 +235,24 @@ export default function ChatPage() {
           </div>
         )}
 
-        {isBundledModel && !activePersona && !hasMessages && (
-          <button
-            onClick={() => navigate('/models')}
-            className="text-[11px] text-gray-500 hover:text-accent transition-colors"
-          >
-            Running Phi-3 Mini {'\u2014'} explore more powerful models in the library {'\u2192'}
-          </button>
+        {isBundledModel && !bannerDismissed && (
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => navigate('/models')}
+              className="text-[11px] text-gray-500 hover:text-accent transition-colors"
+            >
+              Running Phi-3 Mini {'\u00B7'} Explore more models in the library {'\u2192'}
+            </button>
+            <button
+              onClick={dismissBanner}
+              className="text-gray-600 hover:text-gray-400 transition-colors"
+              title="Dismiss"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 
