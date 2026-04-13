@@ -15,6 +15,11 @@ const api = {
   // Hardware
   detectHardware: () => ipcRenderer.invoke('hw:detect'),
 
+  // Document Chat
+  parseDocument: (filePath: string) => ipcRenderer.invoke('doc:parse', filePath),
+  docChat: (modelPath: string, docText: string, docFilename: string, message: string) =>
+    ipcRenderer.invoke('doc:chat', modelPath, docText, docFilename, message),
+
   // HuggingFace Explorer
   hfSearch: (query: string, limit?: number) => ipcRenderer.invoke('hf:search', query, limit ?? 20),
   hfDownload: (fileUrl: string, filename: string) => ipcRenderer.invoke('hf:download', fileUrl, filename),

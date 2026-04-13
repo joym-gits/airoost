@@ -399,6 +399,32 @@ export async function resetChat(): Promise<void> {
   }
 }
 
+/**
+ * Chat with a custom system prompt (used for document chat).
+ * Creates a fresh session each time to apply the system prompt.
+ */
+export async function chatWithContext(
+  modelPath: string,
+  systemPrompt: string,
+  userMessage: string,
+  onToken?: (token: string) => void
+): Promise<string> {
+  await loadModel(modelPath)
+  if (!activeContext) throw new Error('No active context')
+
+  const { LlamaChatSession } = await loadNodeLlamaCpp()
+  const session = new LlamaChatSession({
+    contextSequence: activeContext.getSequence(),
+    systemPrompt
+  })
+
+  const response = await session.prompt(userMessage, {
+    onTextChunk: onToken
+  })
+
+  return response
+}
+
 export function getModelsDir(): string {
   return getModelsDirPath()
 }

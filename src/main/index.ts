@@ -13,6 +13,8 @@ import {
   loadModel
 } from './llmService'
 import { searchModels, downloadHFModel } from './huggingfaceService'
+import { parseDocument, buildDocumentPrompt } from './documentService'
+import { chatWithContext } from './llmService'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -106,6 +108,34 @@ ipcMain.handle('hf:download', (event, fileUrl: string, filename: string) => {
   return downloadHFModel(fileUrl, filename, getModelsDir(), (percent, status) => {
     event.sender.send('llm:download-progress', { modelId: filename, percent, status })
   })
+})
+
+// Document Chat
+ipcMain.handle('doc:parse', async (_event, filePath: string) => {
+  try {
+    return await parseDocument(filePath)
+  } catch (err: any) {
+    console.error('Document parse error:', err)
+    throw new Error(err?.message ?? 'Failed to parse document')
+  }
+})
+
+ipcMain.handle('doc:chat', async (event, modelPath: string, docText: string, docFilename: string, message: string) => {
+  const systemPrompt = buildDocumentPrompt({
+    filename: docFilename,
+    extension: '',
+    text: docText,
+    pageCount: 0,
+    charCount: docText.length,
+    truncated: false
+  })
+
+  let full = ''
+  const response = await chatWithContext(modelPath, systemPrompt, message, (token) => {
+    full += token
+    event.sender.send('llm:chat-token', { token, partial: full })
+  })
+  return response
 })
 
 // ─── App Lifecycle ────────────────────────────────────────────────

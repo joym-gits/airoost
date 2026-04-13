@@ -12,7 +12,9 @@
     "package": "npm run build && electron-builder"
   },
   "dependencies": {
+    "mammoth": "^1.12.0",
     "node-llama-cpp": "^3.18.1",
+    "pdf-parse": "^2.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",

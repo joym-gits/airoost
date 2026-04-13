@@ -8,11 +8,22 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    parseDocument: (filePath: string) => Promise<ParsedDocument>
+    docChat: (modelPath: string, docText: string, docFilename: string, message: string) => Promise<string>
     hfSearch: (query: string, limit?: number) => Promise<HFModel[]>
     hfDownload: (fileUrl: string, filename: string) => Promise<string>
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface ParsedDocument {
+  filename: string
+  extension: string
+  text: string
+  pageCount: number
+  charCount: number
+  truncated: boolean
 }
 
 interface HFModel {
