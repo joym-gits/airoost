@@ -38,9 +38,6 @@ export default function ChatPage() {
   const hasMessages = messages.length > 0
   const canCompare = installedModels.length >= 2
 
-  // Render compare mode
-  if (compareMode) return <CompareView />
-
   useEffect(() => {
     window.airoost.getPersonas().then(setPersonas)
   }, [])
@@ -52,6 +49,9 @@ export default function ChatPage() {
   useEffect(() => {
     inputRef.current?.focus()
   }, [activeConversationId])
+
+  // Render compare mode (after all hooks)
+  if (compareMode) return <CompareView />
 
   // Close export menu on outside click
   useEffect(() => {
