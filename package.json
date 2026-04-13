@@ -1,6 +1,6 @@
 {
   "name": "airoost",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "VLC for AI models — download and run open-source AI models locally with zero setup",
   "main": "out/main/index.js",
   "author": {
@@ -80,7 +80,7 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["universal"]
+          "arch": ["arm64"]
         }
       ],
       "icon": "build/icon.icns",
@@ -90,7 +90,7 @@
       "gatekeeperAssess": false,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
-      "artifactName": "${productName}-${version}-mac-universal.${ext}"
+      "artifactName": "${productName}-${version}-mac.${ext}"
     },
     "dmg": {
       "contents": [
