@@ -8,6 +8,7 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    getFilePath: (file: File) => string
     exportPDF: (data: any) => Promise<string | null>
     exportDOCX: (data: any) => Promise<string | null>
     exportMarkdown: (data: any) => Promise<string>

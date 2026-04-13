@@ -62,7 +62,12 @@ export default function DocumentsPage() {
       return
     }
 
-    await loadDocument(file.path)
+    const filePath = window.airoost.getFilePath(file)
+    if (!filePath) {
+      setParseError('Could not read file path. Try again.')
+      return
+    }
+    await loadDocument(filePath)
   }, [])
 
   const loadDocument = async (filePath: string) => {

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 const api = {
   // Models
@@ -35,6 +35,9 @@ const api = {
   updatePersona: (id: string, name: string, emoji: string, systemPrompt: string) => ipcRenderer.invoke('persona:update', id, name, emoji, systemPrompt),
   deletePersona: (id: string) => ipcRenderer.invoke('persona:delete', id),
   chatWithPersona: (modelPath: string, systemPrompt: string, message: string) => ipcRenderer.invoke('llm:chat-persona', modelPath, systemPrompt, message),
+
+  // File path helper (Electron's modern API for drag-drop)
+  getFilePath: (file: File) => webUtils.getPathForFile(file),
 
   // Document Chat
   parseDocument: (filePath: string) => ipcRenderer.invoke('doc:parse', filePath),
