@@ -238,6 +238,7 @@ let llamaInstance: any = null
 let loadedModel: any = null
 let activeContext: any = null
 let activeSession: any = null
+let activeSequence: any = null
 let loadedModelPath: string | null = null
 
 function ensureModelsDir(): void {
@@ -359,12 +360,18 @@ export async function loadModel(modelPath: string): Promise<void> {
 
   loadedModel = await llamaInstance.loadModel({ modelPath })
   activeContext = await loadedModel.createContext()
+  activeSequence = activeContext.getSequence()
   const { LlamaChatSession } = await loadNodeLlamaCpp()
-  activeSession = new LlamaChatSession({ contextSequence: activeContext.getSequence() })
+  activeSession = new LlamaChatSession({ contextSequence: activeSequence })
   loadedModelPath = modelPath
 }
 
 export async function unloadModel(): Promise<void> {
+  activeSession = null
+  if (activeSequence) {
+    activeSequence.dispose()
+    activeSequence = null
+  }
   if (activeContext) {
     await activeContext.dispose()
     activeContext = null
@@ -373,7 +380,6 @@ export async function unloadModel(): Promise<void> {
     await loadedModel.dispose()
     loadedModel = null
   }
-  activeSession = null
   loadedModelPath = null
 }
 
@@ -393,9 +399,11 @@ export async function chat(
 }
 
 export async function resetChat(): Promise<void> {
-  if (activeContext && loadedModel) {
+  if (activeContext && loadedModel && activeSequence) {
+    // Erase the sequence to free context space, then create fresh session
+    activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
     const { LlamaChatSession } = await loadNodeLlamaCpp()
-    activeSession = new LlamaChatSession({ contextSequence: activeContext.getSequence() })
+    activeSession = new LlamaChatSession({ contextSequence: activeSequence })
   }
 }
 
@@ -410,15 +418,17 @@ export async function chatWithContext(
   onToken?: (token: string) => void
 ): Promise<string> {
   await loadModel(modelPath)
-  if (!activeContext) throw new Error('No active context')
+  if (!activeContext || !activeSequence) throw new Error('No active context')
 
+  // Erase existing context and create a fresh session with system prompt
+  activeSequence.eraseContextTokenRanges([{ start: 0, end: activeSequence.nextTokenIndex }])
   const { LlamaChatSession } = await loadNodeLlamaCpp()
-  const session = new LlamaChatSession({
-    contextSequence: activeContext.getSequence(),
+  activeSession = new LlamaChatSession({
+    contextSequence: activeSequence,
     systemPrompt
   })
 
-  const response = await session.prompt(userMessage, {
+  const response = await activeSession.prompt(userMessage, {
     onTextChunk: onToken
   })
 

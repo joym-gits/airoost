@@ -74,12 +74,19 @@ ipcMain.handle('llm:delete-model', (_event, modelId: string) => deleteModel(mode
 
 // Chat
 ipcMain.handle('llm:chat', async (event, modelPath: string, message: string) => {
-  let full = ''
-  const response = await chat(modelPath, message, (token) => {
-    full += token
-    event.sender.send('llm:chat-token', { token, partial: full })
-  })
-  return response
+  try {
+    console.log('Chat request:', { modelPath, message: message.slice(0, 50) })
+    let full = ''
+    const response = await chat(modelPath, message, (token) => {
+      full += token
+      event.sender.send('llm:chat-token', { token, partial: full })
+    })
+    console.log('Chat response length:', response.length)
+    return response
+  } catch (err) {
+    console.error('Chat error:', err)
+    throw err
+  }
 })
 
 ipcMain.handle('llm:reset-chat', () => resetChat())
@@ -148,12 +155,19 @@ ipcMain.handle('persona:delete', (_event, id: string) => deletePersona(id))
 
 // Chat with persona (system prompt)
 ipcMain.handle('llm:chat-persona', async (event, modelPath: string, systemPrompt: string, message: string) => {
-  let full = ''
-  const response = await chatWithContext(modelPath, systemPrompt, message, (token) => {
-    full += token
-    event.sender.send('llm:chat-token', { token, partial: full })
-  })
-  return response
+  try {
+    console.log('Persona chat request:', { modelPath, message: message.slice(0, 50) })
+    let full = ''
+    const response = await chatWithContext(modelPath, systemPrompt, message, (token) => {
+      full += token
+      event.sender.send('llm:chat-token', { token, partial: full })
+    })
+    console.log('Persona chat response length:', response.length)
+    return response
+  } catch (err) {
+    console.error('Persona chat error:', err)
+    throw err
+  }
 })
 
 // ─── App Lifecycle ────────────────────────────────────────────────
