@@ -527,52 +527,45 @@ export const useAppStore = create<AppState>((set, get) => ({
       compareTimeB: null
     })
 
+    // Run sequentially — node-llama-cpp can only load one model at a time
+    // Model A first
     const startA = Date.now()
-    const startB = Date.now()
-
-    // Run both in parallel
-    const chatA = (async () => {
+    let responseA = ''
+    {
       const cleanup = window.airoost.onChatToken(({ partial }) => {
         set({ compareStreamA: partial })
       })
       try {
-        const response = await window.airoost.chat(compareModelA.path, message)
-        set({ compareGeneratingA: false, compareTimeA: Date.now() - startA, compareStreamA: response })
-        return response
+        responseA = await window.airoost.chat(compareModelA.path, message)
+        set({ compareGeneratingA: false, compareTimeA: Date.now() - startA, compareStreamA: responseA })
       } catch {
-        set({ compareGeneratingA: false, compareStreamA: 'Error generating response.' })
-        return 'Error generating response.'
+        responseA = 'Error generating response.'
+        set({ compareGeneratingA: false, compareStreamA: responseA })
       } finally {
         cleanup()
       }
-    })()
+    }
 
-    const chatB = (async () => {
-      // Small delay so token events don't collide on the same IPC channel
-      await new Promise((r) => setTimeout(r, 50))
+    // Reset chat session before switching models
+    await window.airoost.resetChat()
+
+    // Model B
+    const startB = Date.now()
+    let responseB = ''
+    {
       const cleanup = window.airoost.onChatToken(({ partial }) => {
-        // Only update B if A is already done or we're past the initial tokens
-        if (!get().compareGeneratingA || partial.length > get().compareStreamA.length) {
-          set({ compareStreamB: partial })
-        }
+        set({ compareStreamB: partial })
       })
       try {
-        const response = await window.airoost.chatWithPersona(
-          compareModelB.path,
-          'You are a helpful assistant.',
-          message
-        )
-        set({ compareGeneratingB: false, compareTimeB: Date.now() - startB, compareStreamB: response })
-        return response
+        responseB = await window.airoost.chat(compareModelB.path, message)
+        set({ compareGeneratingB: false, compareTimeB: Date.now() - startB, compareStreamB: responseB })
       } catch {
-        set({ compareGeneratingB: false, compareStreamB: 'Error generating response.' })
-        return 'Error generating response.'
+        responseB = 'Error generating response.'
+        set({ compareGeneratingB: false, compareStreamB: responseB })
       } finally {
         cleanup()
       }
-    })()
-
-    const [responseA, responseB] = await Promise.all([chatA, chatB])
+    }
 
     // Save comparison to conversation history
     const { activePersona, activeFolderId } = get()
