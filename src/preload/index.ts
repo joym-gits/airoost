@@ -15,6 +15,14 @@ const api = {
   // Hardware
   detectHardware: () => ipcRenderer.invoke('hw:detect'),
 
+  // Personas
+  getPersonas: () => ipcRenderer.invoke('persona:get-all'),
+  getPersona: (id: string) => ipcRenderer.invoke('persona:get', id),
+  createPersona: (name: string, emoji: string, systemPrompt: string) => ipcRenderer.invoke('persona:create', name, emoji, systemPrompt),
+  updatePersona: (id: string, name: string, emoji: string, systemPrompt: string) => ipcRenderer.invoke('persona:update', id, name, emoji, systemPrompt),
+  deletePersona: (id: string) => ipcRenderer.invoke('persona:delete', id),
+  chatWithPersona: (modelPath: string, systemPrompt: string, message: string) => ipcRenderer.invoke('llm:chat-persona', modelPath, systemPrompt, message),
+
   // Document Chat
   parseDocument: (filePath: string) => ipcRenderer.invoke('doc:parse', filePath),
   docChat: (modelPath: string, docText: string, docFilename: string, message: string) =>

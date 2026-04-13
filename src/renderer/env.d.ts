@@ -8,6 +8,12 @@ interface Window {
     chat: (modelPath: string, message: string) => Promise<string>
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
+    getPersonas: () => Promise<PersonaData[]>
+    getPersona: (id: string) => Promise<PersonaData | null>
+    createPersona: (name: string, emoji: string, systemPrompt: string) => Promise<PersonaData>
+    updatePersona: (id: string, name: string, emoji: string, systemPrompt: string) => Promise<PersonaData | null>
+    deletePersona: (id: string) => Promise<void>
+    chatWithPersona: (modelPath: string, systemPrompt: string, message: string) => Promise<string>
     parseDocument: (filePath: string) => Promise<ParsedDocument>
     docChat: (modelPath: string, docText: string, docFilename: string, message: string) => Promise<string>
     hfSearch: (query: string, limit?: number) => Promise<HFModel[]>
@@ -15,6 +21,14 @@ interface Window {
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
     onChatToken: (callback: (data: { token: string; partial: string }) => void) => () => void
   }
+}
+
+interface PersonaData {
+  id: string
+  name: string
+  emoji: string
+  systemPrompt: string
+  builtin: boolean
 }
 
 interface ParsedDocument {

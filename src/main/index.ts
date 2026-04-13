@@ -15,6 +15,7 @@ import {
 import { searchModels, downloadHFModel } from './huggingfaceService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
+import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -130,6 +131,23 @@ ipcMain.handle('doc:chat', async (event, modelPath: string, docText: string, doc
     truncated: false
   })
 
+  let full = ''
+  const response = await chatWithContext(modelPath, systemPrompt, message, (token) => {
+    full += token
+    event.sender.send('llm:chat-token', { token, partial: full })
+  })
+  return response
+})
+
+// Personas
+ipcMain.handle('persona:get-all', () => getAllPersonas())
+ipcMain.handle('persona:get', (_event, id: string) => getPersonaById(id))
+ipcMain.handle('persona:create', (_event, name: string, emoji: string, systemPrompt: string) => createPersona(name, emoji, systemPrompt))
+ipcMain.handle('persona:update', (_event, id: string, name: string, emoji: string, systemPrompt: string) => updatePersona(id, name, emoji, systemPrompt))
+ipcMain.handle('persona:delete', (_event, id: string) => deletePersona(id))
+
+// Chat with persona (system prompt)
+ipcMain.handle('llm:chat-persona', async (event, modelPath: string, systemPrompt: string, message: string) => {
   let full = ''
   const response = await chatWithContext(modelPath, systemPrompt, message, (token) => {
     full += token

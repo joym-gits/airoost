@@ -14,6 +14,9 @@ export interface Conversation {
   messages: ChatMessage[]
   modelId: string
   modelPath: string
+  personaId: string | null
+  personaName: string | null
+  personaEmoji: string | null
   createdAt: number
   updatedAt: number
 }
@@ -34,6 +37,7 @@ interface AppState {
   activeConversationId: string | null
   selectedModelPath: string | null
   selectedModelName: string | null
+  activePersona: PersonaData | null
   isGenerating: boolean
   streamingText: string
 
@@ -44,6 +48,9 @@ interface AppState {
   deleteModel: (modelId: string) => Promise<void>
   detectHardware: () => Promise<void>
   setSelectedModel: (path: string, name: string) => void
+
+  // Actions - Persona
+  setActivePersona: (persona: PersonaData | null) => void
 
   // Actions - Chat
   createConversation: () => void
@@ -83,6 +90,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeConversationId: null,
   selectedModelPath: null,
   selectedModelName: null,
+  activePersona: null,
   isGenerating: false,
   streamingText: '',
 
@@ -138,10 +146,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setSelectedModel: (path, name) => set({ selectedModelPath: path, selectedModelName: name }),
 
+  // ─── Persona Actions ────────────────────────────────────────
+
+  setActivePersona: (persona) => set({ activePersona: persona }),
+
   // ─── Chat Actions ────────────────────────────────────────────
 
   createConversation: () => {
-    const { selectedModelPath, selectedModelName, installedModels } = get()
+    const { selectedModelPath, selectedModelName, installedModels, activePersona } = get()
     const modelPath = selectedModelPath ?? installedModels[0]?.path ?? ''
     const modelName = selectedModelName ?? installedModels[0]?.name ?? 'Unknown'
 
@@ -151,6 +163,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       messages: [],
       modelId: modelName,
       modelPath,
+      personaId: activePersona?.id ?? null,
+      personaName: activePersona?.name ?? null,
+      personaEmoji: activePersona?.emoji ?? null,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -211,7 +226,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
 
     try {
-      const response = await window.airoost.chat(modelPath, message)
+      const { activePersona } = get()
+      const response = activePersona
+        ? await window.airoost.chatWithPersona(modelPath, activePersona.systemPrompt, message)
+        : await window.airoost.chat(modelPath, message)
       const assistantMsg: ChatMessage = { role: 'assistant', content: response, timestamp: Date.now() }
       convo.messages.push(assistantMsg)
       convo.updatedAt = Date.now()

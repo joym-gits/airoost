@@ -15,16 +15,24 @@ export default function ChatPage() {
     sendMessage,
     regenerateLastResponse,
     isGenerating,
-    streamingText
+    streamingText,
+    activePersona,
+    setActivePersona
   } = useAppStore()
 
   const [input, setInput] = useState('')
+  const [personas, setPersonas] = useState<PersonaData[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const activeConvo = conversations.find((c) => c.id === activeConversationId)
   const messages = activeConvo?.messages ?? []
   const noModels = installedModels.length === 0
+
+  // Fetch personas on mount
+  useEffect(() => {
+    window.airoost.getPersonas().then(setPersonas)
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -57,6 +65,7 @@ export default function ChatPage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 border-b border-white/5">
+        {/* Model selector */}
         <select
           value={selectedModelPath ?? ''}
           onChange={(e) => {
@@ -71,7 +80,29 @@ export default function ChatPage() {
           ))}
         </select>
 
-        {isBundledModel && (
+        {/* Persona selector */}
+        <select
+          value={activePersona?.id ?? ''}
+          onChange={(e) => {
+            const p = personas.find((p) => p.id === e.target.value)
+            setActivePersona(p ?? null)
+          }}
+          className="bg-surface-dark border border-white/10 text-white text-xs rounded-lg px-3 py-1.5 outline-none"
+        >
+          <option value="">No Persona</option>
+          {personas.map((p) => (
+            <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>
+          ))}
+        </select>
+
+        {/* Active persona badge */}
+        {activePersona && (
+          <span className="text-[11px] text-accent/70">
+            {activePersona.emoji} {activePersona.name}
+          </span>
+        )}
+
+        {isBundledModel && !activePersona && (
           <button
             onClick={() => navigate('/models')}
             className="text-[11px] text-gray-500 hover:text-accent transition-colors"

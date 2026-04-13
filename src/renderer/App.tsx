@@ -6,6 +6,7 @@ import ModelLibraryPage from './pages/ModelLibraryPage'
 import SettingsPage from './pages/SettingsPage'
 import DocumentsPage from './pages/DocumentsPage'
 import VoicePage from './pages/VoicePage'
+import PersonasPage from './pages/PersonasPage'
 import { useAppStore } from './store/appStore'
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/models" element={<ModelLibraryPage />} />
           <Route path="/documents" element={<DocumentsPage />} />
           <Route path="/voice" element={<VoicePage />} />
+          <Route path="/personas" element={<PersonasPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
