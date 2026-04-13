@@ -164,6 +164,7 @@ export default function Sidebar() {
                 value={sidebarSearch}
                 onChange={(e) => setSidebarSearch(e.target.value)}
                 placeholder="Search conversations..."
+                data-sidebar-search
                 className="w-full bg-surface-dark border border-white/5 rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-white placeholder-gray-600 outline-none focus:border-accent/30 transition-colors"
               />
             </div>

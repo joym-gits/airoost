@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatPage from './pages/ChatPage'
 import ModelLibraryPage from './pages/ModelLibraryPage'
@@ -9,16 +9,44 @@ import VoicePage from './pages/VoicePage'
 import PersonasPage from './pages/PersonasPage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
 import DashboardPage from './pages/DashboardPage'
+import OnboardingTour from './components/OnboardingTour'
+import ShortcutsModal from './components/ShortcutsModal'
 import { useAppStore } from './store/appStore'
+import { useThemeStore } from './store/themeStore'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 export default function App() {
-  const { fetchInstalled, fetchCatalog, detectHardware } = useAppStore()
+  const { fetchInstalled, fetchCatalog, detectHardware, createConversation,
+    regenerateLastResponse, conversations, activeConversationId, setSidebarSearch } = useAppStore()
+  const _theme = useThemeStore() // Initialize theme on mount
+
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   useEffect(() => {
     fetchInstalled()
     fetchCatalog()
     detectHardware()
   }, [fetchInstalled, fetchCatalog, detectHardware])
+
+  // Global keyboard shortcuts
+  useKeyboardShortcuts({
+    onNewConversation: () => createConversation(),
+    onSearchFocus: () => {
+      setSidebarSearch('')
+      // Focus the sidebar search input
+      const el = document.querySelector('[data-sidebar-search]') as HTMLInputElement
+      el?.focus()
+    },
+    onRegenerate: () => regenerateLastResponse(),
+    onCopyLastResponse: () => {
+      const convo = conversations.find((c) => c.id === activeConversationId)
+      if (!convo) return
+      const lastAssistant = [...convo.messages].reverse().find((m) => m.role === 'assistant')
+      if (lastAssistant) navigator.clipboard.writeText(lastAssistant.content)
+    },
+    onShortcutsHelp: () => setShortcutsOpen((v) => !v),
+    onEscape: () => setShortcutsOpen(false)
+  })
 
   return (
     <div className="flex h-screen bg-surface-dark">
@@ -36,6 +64,10 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
+
+      {/* Global overlays */}
+      <OnboardingTour />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   )
 }

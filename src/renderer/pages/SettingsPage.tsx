@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../store/appStore'
+import { useThemeStore, ACCENT_COLORS, type AccentColor, type ThemeMode, type FontSize, type LayoutDensity } from '../store/themeStore'
 
 export default function SettingsPage() {
   const { installedModels, hardware, detectHardware, fetchInstalled } = useAppStore()
+  const theme = useThemeStore()
   const [modelsDir, setModelsDir] = useState('')
   useEffect(() => {
     fetchInstalled()
@@ -16,9 +18,75 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold text-white mb-1">Settings</h1>
         <p className="text-xs text-gray-500 mb-8">Deliberately simple. Only what's necessary.</p>
 
-        {/* Theme */}
+        {/* Appearance */}
         <Section title="Appearance">
-          <Row label="Theme" value="Dark" hint="Light and System themes coming soon" />
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Theme</span>
+            <div className="flex gap-1">
+              {(['dark', 'light', 'system'] as ThemeMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => theme.setMode(m)}
+                  className={`px-3 py-1 rounded-lg text-xs capitalize transition-colors ${
+                    theme.mode === m ? 'bg-accent text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Accent colour</span>
+            <div className="flex gap-1.5">
+              {(Object.keys(ACCENT_COLORS) as AccentColor[]).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => theme.setAccent(c)}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${
+                    theme.accent === c ? 'border-white scale-110' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: ACCENT_COLORS[c] }}
+                  title={c}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Font size</span>
+            <div className="flex gap-1">
+              {(['small', 'medium', 'large'] as FontSize[]).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => theme.setFontSize(s)}
+                  className={`px-3 py-1 rounded-lg text-xs capitalize transition-colors ${
+                    theme.fontSize === s ? 'bg-accent text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-gray-400">Layout density</span>
+            <div className="flex gap-1">
+              {(['compact', 'comfortable'] as LayoutDensity[]).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => theme.setDensity(d)}
+                  className={`px-3 py-1 rounded-lg text-xs capitalize transition-colors ${
+                    theme.density === d ? 'bg-accent text-white' : 'bg-white/5 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
         </Section>
 
         {/* Storage */}
