@@ -62,7 +62,7 @@ function darkenColor(hex: string, percent: number): string {
   return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
 }
 
-function applyTheme(mode: ThemeMode, accent: AccentColor, fontSize: FontSize): void {
+function applyTheme(mode: ThemeMode, accent: AccentColor, fontSize: FontSize, density?: LayoutDensity): void {
   const root = document.documentElement
 
   // Accent color CSS variables
@@ -72,9 +72,13 @@ function applyTheme(mode: ThemeMode, accent: AccentColor, fontSize: FontSize): v
   root.style.setProperty('--accent-light', lightenColor(accentHex, 20))
   root.style.setProperty('--accent-dark', darkenColor(accentHex, 15))
 
-  // Font size
+  // Font size — set data attribute so CSS can scale everything
+  root.setAttribute('data-font-size', fontSize)
   root.style.setProperty('--font-size', FONT_SIZES[fontSize])
   document.body.style.fontSize = FONT_SIZES[fontSize]
+
+  // Layout density
+  root.setAttribute('data-density', density ?? 'comfortable')
 
   // Light/dark mode
   const resolvedMode = mode === 'system'
@@ -93,34 +97,35 @@ function applyTheme(mode: ThemeMode, accent: AccentColor, fontSize: FontSize): v
 export const useThemeStore = create<ThemeState>((set, get) => {
   const initial = loadTheme()
   // Apply on load
-  setTimeout(() => applyTheme(initial.mode, initial.accent, initial.fontSize), 0)
+  setTimeout(() => applyTheme(initial.mode, initial.accent, initial.fontSize, initial.density), 0)
 
   return {
     ...initial,
 
     setMode: (mode) => {
       const state = { ...get(), mode }
-      applyTheme(mode, state.accent, state.fontSize)
+      applyTheme(mode, state.accent, state.fontSize, state.density)
       saveTheme(state)
       set({ mode })
     },
 
     setAccent: (accent) => {
       const state = { ...get(), accent }
-      applyTheme(state.mode, accent, state.fontSize)
+      applyTheme(state.mode, accent, state.fontSize, state.density)
       saveTheme(state)
       set({ accent })
     },
 
     setFontSize: (fontSize) => {
       const state = { ...get(), fontSize }
-      applyTheme(state.mode, state.accent, fontSize)
+      applyTheme(state.mode, state.accent, fontSize, state.density)
       saveTheme(state)
       set({ fontSize })
     },
 
     setDensity: (density) => {
       const state = { ...get(), density }
+      applyTheme(state.mode, state.accent, state.fontSize, density)
       saveTheme(state)
       set({ density })
     }

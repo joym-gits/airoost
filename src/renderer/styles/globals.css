@@ -79,6 +79,41 @@
   background-color: rgba(0, 0, 0, 0.08);
 }
 
+/* ─── Font Size Scaling ────────────────────────────────────── */
+
+[data-font-size="small"] .text-sm { font-size: 12px; }
+[data-font-size="small"] .text-xs { font-size: 10px; }
+[data-font-size="small"] .text-\[11px\] { font-size: 9px; }
+[data-font-size="small"] .text-\[10px\] { font-size: 8px; }
+[data-font-size="small"] .text-lg { font-size: 16px; }
+[data-font-size="small"] .text-xl { font-size: 18px; }
+[data-font-size="small"] .text-2xl { font-size: 20px; }
+
+[data-font-size="large"] .text-sm { font-size: 16px; }
+[data-font-size="large"] .text-xs { font-size: 13px; }
+[data-font-size="large"] .text-\[11px\] { font-size: 13px; }
+[data-font-size="large"] .text-\[10px\] { font-size: 12px; }
+[data-font-size="large"] .text-lg { font-size: 22px; }
+[data-font-size="large"] .text-xl { font-size: 24px; }
+[data-font-size="large"] .text-2xl { font-size: 28px; }
+
+/* ─── Layout Density ──────────────────────────────────────── */
+
+[data-density="compact"] .px-5 { padding-left: 12px; padding-right: 12px; }
+[data-density="compact"] .py-4 { padding-top: 8px; padding-bottom: 8px; }
+[data-density="compact"] .py-3 { padding-top: 6px; padding-bottom: 6px; }
+[data-density="compact"] .p-6 { padding: 12px; }
+[data-density="compact"] .p-4 { padding: 8px; }
+[data-density="compact"] .p-5 { padding: 10px; }
+[data-density="compact"] .gap-4 { gap: 8px; }
+[data-density="compact"] .gap-3 { gap: 6px; }
+[data-density="compact"] .space-y-4 > * + * { margin-top: 8px; }
+[data-density="compact"] .space-y-3 > * + * { margin-top: 6px; }
+[data-density="compact"] .mb-6 { margin-bottom: 12px; }
+[data-density="compact"] .mb-8 { margin-bottom: 16px; }
+[data-density="compact"] .rounded-2xl { border-radius: 12px; }
+[data-density="compact"] .rounded-xl { border-radius: 8px; }
+
 /* ─── Base Styles ──────────────────────────────────────────── */
 
 body {
