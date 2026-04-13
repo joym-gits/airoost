@@ -9,6 +9,8 @@ interface Window {
     resetChat: () => Promise<void>
     detectHardware: () => Promise<HardwareInfo>
     getFilePath: (file: File) => string
+    compareChat: (modelPathA: string, modelPathB: string, message: string) => Promise<{ responseA: string; responseB: string }>
+    onCompareToken: (callback: (data: { side: 'A' | 'B'; token: string }) => void) => () => void
     exportPDF: (data: any) => Promise<string | null>
     exportDOCX: (data: any) => Promise<string | null>
     exportMarkdown: (data: any) => Promise<string>

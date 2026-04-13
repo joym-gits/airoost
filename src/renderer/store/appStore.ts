@@ -527,45 +527,48 @@ export const useAppStore = create<AppState>((set, get) => ({
       compareTimeB: null
     })
 
-    // Run sequentially — node-llama-cpp can only load one model at a time
-    // Model A first
-    const startA = Date.now()
+    const startTime = Date.now()
+    let streamA = ''
+    let streamB = ''
+
+    // Listen for per-side token events (both stream in parallel)
+    const cleanup = window.airoost.onCompareToken(({ side, token }) => {
+      if (side === 'A') {
+        streamA += token
+        set({ compareStreamA: streamA })
+      } else {
+        streamB += token
+        set({ compareStreamB: streamB })
+      }
+    })
+
     let responseA = ''
-    {
-      const cleanup = window.airoost.onChatToken(({ partial }) => {
-        set({ compareStreamA: partial })
-      })
-      try {
-        responseA = await window.airoost.chat(compareModelA.path, message)
-        set({ compareGeneratingA: false, compareTimeA: Date.now() - startA, compareStreamA: responseA })
-      } catch {
-        responseA = 'Error generating response.'
-        set({ compareGeneratingA: false, compareStreamA: responseA })
-      } finally {
-        cleanup()
-      }
-    }
-
-    // Reset chat session before switching models
-    await window.airoost.resetChat()
-
-    // Model B
-    const startB = Date.now()
     let responseB = ''
-    {
-      const cleanup = window.airoost.onChatToken(({ partial }) => {
-        set({ compareStreamB: partial })
-      })
-      try {
-        responseB = await window.airoost.chat(compareModelB.path, message)
-        set({ compareGeneratingB: false, compareTimeB: Date.now() - startB, compareStreamB: responseB })
-      } catch {
-        responseB = 'Error generating response.'
-        set({ compareGeneratingB: false, compareStreamB: responseB })
-      } finally {
-        cleanup()
-      }
+
+    try {
+      const result = await window.airoost.compareChat(
+        compareModelA.path,
+        compareModelB.path,
+        message
+      )
+      responseA = result.responseA
+      responseB = result.responseB
+    } catch {
+      responseA = responseA || 'Error generating response.'
+      responseB = responseB || 'Error generating response.'
+    } finally {
+      cleanup()
     }
+
+    const elapsed = Date.now() - startTime
+    set({
+      compareGeneratingA: false,
+      compareGeneratingB: false,
+      compareStreamA: responseA,
+      compareStreamB: responseB,
+      compareTimeA: elapsed,
+      compareTimeB: elapsed
+    })
 
     // Save comparison to conversation history
     const { activePersona, activeFolderId } = get()

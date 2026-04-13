@@ -435,6 +435,57 @@ export async function chatWithContext(
   return response
 }
 
+/**
+ * Run two models in parallel for comparison mode.
+ * Loads both models into separate contexts and runs inference simultaneously.
+ */
+export async function compareChat(
+  modelPathA: string,
+  modelPathB: string,
+  message: string,
+  onTokenA?: (token: string) => void,
+  onTokenB?: (token: string) => void
+): Promise<{ responseA: string; responseB: string }> {
+  if (!llamaInstance) await initLlama()
+
+  const { LlamaChatSession } = await loadNodeLlamaCpp()
+
+  // Load both models (may be the same model file — that's ok)
+  const modelA = await llamaInstance.loadModel({ modelPath: modelPathA })
+  const modelB = modelPathA === modelPathB
+    ? modelA
+    : await llamaInstance.loadModel({ modelPath: modelPathB })
+
+  const ctxA = await modelA.createContext()
+  const ctxB = modelPathA === modelPathB
+    ? await modelA.createContext()
+    : await modelB.createContext()
+
+  const seqA = ctxA.getSequence()
+  const seqB = ctxB.getSequence()
+
+  const sessionA = new LlamaChatSession({ contextSequence: seqA })
+  const sessionB = new LlamaChatSession({ contextSequence: seqB })
+
+  // Run both in parallel
+  const [responseA, responseB] = await Promise.all([
+    sessionA.prompt(message, { onTextChunk: onTokenA }),
+    sessionB.prompt(message, { onTextChunk: onTokenB })
+  ])
+
+  // Cleanup comparison contexts (don't disturb the main session)
+  seqA.dispose()
+  seqB.dispose()
+  await ctxA.dispose()
+  await ctxB.dispose()
+  if (modelPathA !== modelPathB) {
+    await modelB.dispose()
+  }
+  await modelA.dispose()
+
+  return { responseA, responseB }
+}
+
 export function getModelsDir(): string {
   return getModelsDirPath()
 }

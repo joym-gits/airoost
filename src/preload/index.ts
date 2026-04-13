@@ -39,6 +39,15 @@ const api = {
   // File path helper (Electron's modern API for drag-drop)
   getFilePath: (file: File) => webUtils.getPathForFile(file),
 
+  // Compare
+  compareChat: (modelPathA: string, modelPathB: string, message: string) =>
+    ipcRenderer.invoke('llm:compare', modelPathA, modelPathB, message),
+  onCompareToken: (callback: (data: { side: 'A' | 'B'; token: string }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: { side: 'A' | 'B'; token: string }) => callback(data)
+    ipcRenderer.on('llm:compare-token', handler)
+    return () => ipcRenderer.removeListener('llm:compare-token', handler)
+  },
+
   // Document Chat
   parseDocument: (filePath: string) => ipcRenderer.invoke('doc:parse', filePath),
   docChat: (modelPath: string, docText: string, docFilename: string, message: string) =>

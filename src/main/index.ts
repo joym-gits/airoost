@@ -10,7 +10,8 @@ import {
   resetChat,
   detectHardware,
   getModelsDir,
-  loadModel
+  loadModel,
+  compareChat
 } from './llmService'
 import { searchModels, downloadHFModel } from './huggingfaceService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
@@ -154,6 +155,25 @@ ipcMain.handle('persona:get', (_event, id: string) => getPersonaById(id))
 ipcMain.handle('persona:create', (_event, name: string, emoji: string, systemPrompt: string) => createPersona(name, emoji, systemPrompt))
 ipcMain.handle('persona:update', (_event, id: string, name: string, emoji: string, systemPrompt: string) => updatePersona(id, name, emoji, systemPrompt))
 ipcMain.handle('persona:delete', (_event, id: string) => deletePersona(id))
+
+// Compare chat — two models in parallel
+ipcMain.handle('llm:compare', async (event, modelPathA: string, modelPathB: string, message: string) => {
+  try {
+    console.log('Compare request:', { modelPathA, modelPathB, message: message.slice(0, 50) })
+    const result = await compareChat(
+      modelPathA,
+      modelPathB,
+      message,
+      (token) => event.sender.send('llm:compare-token', { side: 'A', token }),
+      (token) => event.sender.send('llm:compare-token', { side: 'B', token })
+    )
+    console.log('Compare done:', { a: result.responseA.length, b: result.responseB.length })
+    return result
+  } catch (err) {
+    console.error('Compare error:', err)
+    throw err
+  }
+})
 
 // Chat with persona (system prompt)
 ipcMain.handle('llm:chat-persona', async (event, modelPath: string, systemPrompt: string, message: string) => {
