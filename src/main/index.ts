@@ -14,7 +14,7 @@ import {
   compareChat,
   copyBundledModel
 } from './llmService'
-import { searchModels, downloadHFModel } from './huggingfaceService'
+import { searchModels, downloadHFModel, getHFToken, setHFToken } from './huggingfaceService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
 import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
@@ -132,6 +132,9 @@ ipcMain.handle('hf:download', (event, fileUrl: string, filename: string) => {
     event.sender.send('llm:download-progress', { modelId: filename, percent, status })
   })
 })
+
+ipcMain.handle('hf:get-token', () => getHFToken())
+ipcMain.handle('hf:set-token', (_e, token: string) => setHFToken(token))
 
 // Document Chat
 ipcMain.handle('doc:parse', async (_event, filePath: string) => {

@@ -1,7 +1,33 @@
 import https from 'https'
 import http from 'http'
 import { join } from 'path'
-import { existsSync, mkdirSync, createWriteStream } from 'fs'
+import { existsSync, mkdirSync, createWriteStream, readFileSync, writeFileSync } from 'fs'
+import { app } from 'electron'
+
+// ─── HF API Token ─────────────────────────────────────────────────
+
+function getTokenFile(): string {
+  const dir = join(app.getPath('userData'), 'config')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return join(dir, 'hf-token.json')
+}
+
+export function getHFToken(): string {
+  const file = getTokenFile()
+  if (!existsSync(file)) return ''
+  try { return JSON.parse(readFileSync(file, 'utf-8')).token ?? '' } catch { return '' }
+}
+
+export function setHFToken(token: string): void {
+  writeFileSync(getTokenFile(), JSON.stringify({ token }))
+}
+
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'User-Agent': 'Airoost/1.0' }
+  const token = getHFToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
 
 const HF_API = 'https://huggingface.co/api'
 
@@ -38,7 +64,7 @@ export interface HFGGUFFile {
 function httpGet(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http
-    client.get(url, { headers: { 'User-Agent': 'Airoost/0.1' } }, (res) => {
+    client.get(url, { headers: authHeaders() }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         httpGet(res.headers.location).then(resolve).catch(reject)
         return
@@ -167,13 +193,19 @@ export async function downloadHFModel(
   return new Promise((resolve, reject) => {
     const follow = (url: string) => {
       const client = url.startsWith('https') ? https : http
-      client.get(url, { headers: { 'User-Agent': 'Airoost/0.1' } }, (res) => {
+      client.get(url, { headers: authHeaders() }, (res) => {
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           follow(res.headers.location)
           return
         }
         if (res.statusCode !== 200) {
-          reject(new Error(`Download failed: HTTP ${res.statusCode}`))
+          let msg = `Download failed: HTTP ${res.statusCode}`
+          if (res.statusCode === 401 || res.statusCode === 403) {
+            msg = 'This model is gated. Add a Hugging Face access token in Settings > Hugging Face, then try again.'
+          } else if (res.statusCode === 404) {
+            msg = 'Model file not found (404). The URL may have changed on Hugging Face.'
+          }
+          reject(new Error(msg))
           return
         }
 

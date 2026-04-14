@@ -10,13 +10,22 @@ export default function SettingsPage() {
   const [clearConfirm, setClearConfirm] = useState(false)
   const [apiEnabled, setApiEnabled] = useState(false)
   const [apiPort, setApiPort] = useState('11434')
+  const [hfToken, setHfToken] = useState('')
+  const [hfTokenSaved, setHfTokenSaved] = useState(false)
 
   useEffect(() => {
     fetchInstalled()
     detectHardware()
     window.airoost.getModelsDir().then(setModelsDir)
     window.airoost.getPersonas().then(setPersonas)
+    window.airoost.hfGetToken().then(setHfToken)
   }, [fetchInstalled, detectHardware])
+
+  const saveHfToken = async () => {
+    await window.airoost.hfSetToken(hfToken.trim())
+    setHfTokenSaved(true)
+    setTimeout(() => setHfTokenSaved(false), 2000)
+  }
 
   const totalModelSize = installedModels.reduce((sum, m) => sum + m.size, 0)
   const convoStorageKB = Math.round(JSON.stringify(conversations).length / 1024)
@@ -263,6 +272,35 @@ export default function SettingsPage() {
               Enable to expose an OpenAI-compatible API on localhost. No API key required by default.
             </p>
           )}
+        </Section>
+
+        {/* ── Hugging Face ── */}
+        <Section title="Hugging Face">
+          <p className="text-[11px] text-gray-500 mb-2">
+            Optional. Only needed for gated models (some Meta, Mistral, Google models require you to accept their terms on Hugging Face and use an access token to download).
+          </p>
+
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">Access Token</label>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={hfToken}
+                onChange={(e) => setHfToken(e.target.value)}
+                placeholder="hf_..."
+                className="flex-1 bg-surface-dark border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 outline-none focus:border-accent/50 font-mono"
+              />
+              <button
+                onClick={saveHfToken}
+                className="px-3 py-2 bg-accent hover:bg-accent-dark rounded-lg text-white text-xs font-medium transition-colors"
+              >
+                {hfTokenSaved ? 'Saved!' : 'Save'}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-600 mt-1">
+              Get one at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">huggingface.co/settings/tokens</a> — stored locally only
+            </p>
+          </div>
         </Section>
 
         {/* ── Hardware ── */}

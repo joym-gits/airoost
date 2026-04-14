@@ -82,6 +82,8 @@ const api = {
   // HuggingFace Explorer
   hfSearch: (query: string, limit?: number) => ipcRenderer.invoke('hf:search', query, limit ?? 20),
   hfDownload: (fileUrl: string, filename: string) => ipcRenderer.invoke('hf:download', fileUrl, filename),
+  hfGetToken: () => ipcRenderer.invoke('hf:get-token'),
+  hfSetToken: (token: string) => ipcRenderer.invoke('hf:set-token', token),
 
   // Setup progress
   onSetupProgress: (callback: (data: { percent: number; status: string }) => void) => {

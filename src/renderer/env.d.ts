@@ -50,6 +50,8 @@ interface Window {
     chatWithPersona: (modelPath: string, systemPrompt: string, message: string) => Promise<string>
     parseDocument: (filePath: string) => Promise<ParsedDocument>
     docChat: (modelPath: string, docText: string, docFilename: string, message: string) => Promise<string>
+    hfGetToken: () => Promise<string>
+    hfSetToken: (token: string) => Promise<void>
     hfSearch: (query: string, limit?: number) => Promise<HFModel[]>
     hfDownload: (fileUrl: string, filename: string) => Promise<string>
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void

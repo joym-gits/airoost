@@ -339,12 +339,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       // Record stats
       window.airoost.recordMessage(selectedModelName ?? 'Unknown', elapsed, tokenEstimate).catch(() => {})
-    } catch {
-      convo.messages.push({
-        role: 'assistant',
-        content: 'Sorry, I encountered an error generating a response. Please try again.',
-        timestamp: Date.now()
-      })
+    } catch (err: any) {
+      const rawMsg = err?.message ?? String(err)
+      let userMsg = `Error: ${rawMsg}`
+
+      // Translate common llama.cpp errors into helpful messages
+      if (rawMsg.includes('unknown model architecture') || rawMsg.includes('unsupported')) {
+        userMsg = `This model\'s architecture isn\'t supported by the built-in AI engine. Try a different GGUF file — look for models with "llama", "mistral", "gemma", "phi", or "qwen2" in the name.`
+      } else if (rawMsg.includes('load') && rawMsg.includes('fail')) {
+        userMsg = `Failed to load model. The GGUF file may be corrupted or incomplete — try re-downloading it from the Model Library.`
+      } else if (rawMsg.includes('No active session') || rawMsg.includes('No active context')) {
+        userMsg = `Model isn\'t ready yet. Wait a moment and try again, or pick a different model from the dropdown above.`
+      } else if (rawMsg.includes('out of memory') || rawMsg.includes('allocate')) {
+        userMsg = `Not enough memory to run this model on your machine. Try a smaller model (look for "1B" or "3B" variants).`
+      }
+
+      convo.messages.push({ role: 'assistant', content: userMsg, timestamp: Date.now() })
       saveConversations(convos)
       set({ conversations: [...convos] })
     } finally {
