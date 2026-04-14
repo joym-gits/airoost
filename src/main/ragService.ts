@@ -87,10 +87,15 @@ async function extractText(filePath: string): Promise<string> {
   switch (ext) {
     case '.pdf': {
       const pdfMod = await (Function('m', 'return import(m)')('pdf-parse'))
-      const pdfParse = pdfMod.default ?? pdfMod
+      const PDFParse = pdfMod.PDFParse ?? pdfMod.default?.PDFParse ?? pdfMod.default
       const buffer = readFileSync(filePath)
-      const data = await pdfParse(buffer)
-      return data.text ?? ''
+      const parser = new PDFParse({ data: new Uint8Array(buffer) })
+      try {
+        const result = await parser.getText()
+        return result?.text ?? ''
+      } finally {
+        await parser.destroy()
+      }
     }
     case '.docx': {
       const mammoth = await (Function('m', 'return import(m)')('mammoth'))

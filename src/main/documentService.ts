@@ -63,12 +63,17 @@ export async function parseDocument(filePath: string): Promise<ParsedDocument> {
 
 async function parsePDF(filePath: string): Promise<{ text: string; pageCount: number }> {
   const pdfMod = await dynamicImport('pdf-parse')
-  const pdfParse = pdfMod.default ?? pdfMod
+  const PDFParse = pdfMod.PDFParse ?? pdfMod.default?.PDFParse ?? pdfMod.default
   const buffer = readFileSync(filePath)
-  const data = await pdfParse(buffer)
-  return {
-    text: data.text ?? '',
-    pageCount: data.numpages ?? 1
+  const parser = new PDFParse({ data: new Uint8Array(buffer) })
+  try {
+    const result = await parser.getText()
+    return {
+      text: result?.text ?? '',
+      pageCount: result?.pages?.length ?? result?.numpages ?? 1
+    }
+  } finally {
+    await parser.destroy()
   }
 }
 
