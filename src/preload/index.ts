@@ -85,6 +85,13 @@ const api = {
   hfGetToken: () => ipcRenderer.invoke('hf:get-token'),
   hfSetToken: (token: string) => ipcRenderer.invoke('hf:set-token', token),
 
+  // Model Tags
+  modelTagsGetAll: () => ipcRenderer.invoke('model-tags:get-all'),
+  modelTagsGet: (filename: string) => ipcRenderer.invoke('model-tags:get', filename),
+  modelTagsAdd: (filename: string, tag: string) => ipcRenderer.invoke('model-tags:add', filename, tag),
+  modelTagsRemove: (filename: string, tag: string) => ipcRenderer.invoke('model-tags:remove', filename, tag),
+  modelTagsSummary: () => ipcRenderer.invoke('model-tags:summary'),
+
   // Setup progress
   onSetupProgress: (callback: (data: { percent: number; status: string }) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, data: { percent: number; status: string }) => callback(data)

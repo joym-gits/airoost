@@ -15,6 +15,7 @@ import {
   copyBundledModel
 } from './llmService'
 import { searchModels, downloadHFModel, getHFToken, setHFToken } from './huggingfaceService'
+import { getAllTags as getAllModelTags, getTagsForModel, addTagToModel, removeTagFromModel, getTagSummary } from './modelTagsService'
 import { parseDocument, buildDocumentPrompt } from './documentService'
 import { chatWithContext } from './llmService'
 import { getAllPersonas, getPersonaById, createPersona, updatePersona, deletePersona } from './personaService'
@@ -135,6 +136,13 @@ ipcMain.handle('hf:download', (event, fileUrl: string, filename: string) => {
 
 ipcMain.handle('hf:get-token', () => getHFToken())
 ipcMain.handle('hf:set-token', (_e, token: string) => setHFToken(token))
+
+// Model Tags
+ipcMain.handle('model-tags:get-all', () => getAllModelTags())
+ipcMain.handle('model-tags:get', (_e, filename: string) => getTagsForModel(filename))
+ipcMain.handle('model-tags:add', (_e, filename: string, tag: string) => addTagToModel(filename, tag))
+ipcMain.handle('model-tags:remove', (_e, filename: string, tag: string) => removeTagFromModel(filename, tag))
+ipcMain.handle('model-tags:summary', () => getTagSummary())
 
 // Document Chat
 ipcMain.handle('doc:parse', async (_event, filePath: string) => {

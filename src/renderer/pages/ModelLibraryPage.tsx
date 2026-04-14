@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
+import ModelTagEditor from '../components/ModelTagEditor'
+import { tagColor } from '../utils/tags'
 
 type Tab = 'featured' | 'categories' | 'explore'
 
@@ -88,24 +90,98 @@ export default function ModelLibraryPage() {
 
   const [tab, setTab] = useState<Tab>('featured')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [modelTags, setModelTags] = useState<Record<string, string[]>>({})
+  const [tagSummary, setTagSummary] = useState<{ tag: string; count: number }[]>([])
+  const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null)
+
+  const refreshTags = useCallback(async () => {
+    const [all, summary] = await Promise.all([
+      window.airoost.modelTagsGetAll(),
+      window.airoost.modelTagsSummary()
+    ])
+    setModelTags(all)
+    setTagSummary(summary)
+  }, [])
+
+  const handleTagsChanged = useCallback((filename: string, tags: string[]) => {
+    setModelTags((prev) => ({ ...prev, [filename]: tags }))
+    // Refresh the summary (counts) after a change
+    window.airoost.modelTagsSummary().then(setTagSummary)
+  }, [])
+
+  const allUserTags = Object.keys(
+    Object.values(modelTags).reduce((acc, tags) => {
+      tags.forEach((t) => (acc[t] = true))
+      return acc
+    }, {} as Record<string, boolean>)
+  )
 
   useEffect(() => {
     fetchCatalog()
     fetchInstalled()
-  }, [fetchCatalog, fetchInstalled])
+    refreshTags()
+  }, [fetchCatalog, fetchInstalled, refreshTags])
 
-  const featuredModels = catalog.filter((m) => m.featured)
+  const matchesTagFilter = (m: CatalogModel) => {
+    if (!activeTagFilter) return true
+    if (!m.installed) return false
+    const tags = modelTags[m.filename] ?? []
+    return tags.includes(activeTagFilter)
+  }
+
+  const featuredModels = catalog.filter((m) => m.featured && matchesTagFilter(m))
   const categoryModels = selectedCategory
-    ? catalog.filter((m) => m.category.includes(selectedCategory))
+    ? catalog.filter((m) => m.category.includes(selectedCategory) && matchesTagFilter(m))
     : []
 
   return (
-    <div className="p-6 h-full overflow-y-auto">
+    <div className="flex h-full">
+      {/* My Tags sidebar */}
+      <aside className="w-48 border-r border-white/5 p-4 overflow-y-auto shrink-0">
+        <h3 className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">My Tags</h3>
+        {tagSummary.length === 0 ? (
+          <p className="text-[11px] text-gray-600">
+            Tag your installed models to find them quickly.
+          </p>
+        ) : (
+          <div className="space-y-1">
+            {tagSummary.map(({ tag, count }) => {
+              const c = tagColor(tag)
+              const isActive = activeTagFilter === tag
+              return (
+                <button
+                  key={tag}
+                  onClick={() => setActiveTagFilter(isActive ? null : tag)}
+                  className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-left transition-colors ${
+                    isActive ? 'bg-white/10' : 'hover:bg-white/5'
+                  }`}
+                >
+                  <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${c.bg} ${c.text}`}>
+                    {tag}
+                  </span>
+                  <span className="text-[10px] text-gray-600">{count}</span>
+                </button>
+              )
+            })}
+            {activeTagFilter && (
+              <button
+                onClick={() => setActiveTagFilter(null)}
+                className="w-full text-left px-2 py-1 text-[11px] text-gray-500 hover:text-white transition-colors mt-1"
+              >
+                Clear filter
+              </button>
+            )}
+          </div>
+        )}
+      </aside>
+
+    <div className="flex-1 p-6 overflow-y-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Model Library</h1>
         <p className="text-xs text-gray-500 mt-1">
           {installedModels.length} model{installedModels.length !== 1 ? 's' : ''} installed
           {hardware && <span> \u00B7 {hardware.totalRamGB} GB RAM \u00B7 {hardware.gpuName}</span>}
+          {activeTagFilter && <span className="text-accent"> \u00B7 filtered by #{activeTagFilter}</span>}
         </p>
       </div>
 
@@ -141,6 +217,9 @@ export default function ModelLibraryPage() {
               onDownload={() => downloadModel(model.id)}
               onDelete={() => deleteModel(model.id)}
               onUse={model.installed ? () => handleUseModel(model) : undefined}
+              tags={modelTags[model.filename] ?? []}
+              allUserTags={allUserTags}
+              onTagsChanged={(tags) => handleTagsChanged(model.filename, tags)}
             />
           ))}
         </div>
@@ -205,6 +284,7 @@ export default function ModelLibraryPage() {
           fetchCatalog={fetchCatalog}
         />
       )}
+    </div>
     </div>
   )
 }
@@ -475,7 +555,10 @@ function ModelCard({
   downloadStatus,
   onDownload,
   onDelete,
-  onUse
+  onUse,
+  tags = [],
+  allUserTags = [],
+  onTagsChanged
 }: {
   model: CatalogModel
   downloadingModel: string | null
@@ -484,6 +567,9 @@ function ModelCard({
   onDownload: () => void
   onDelete: () => void
   onUse?: () => void
+  tags?: string[]
+  allUserTags?: string[]
+  onTagsChanged?: (tags: string[]) => void
 }) {
   const isDownloading = downloadingModel === model.id
   const compat = model.compatibility
@@ -517,6 +603,16 @@ function ModelCard({
               {compat.message}
             </span>
           </div>
+
+          {/* Tag editor (installed models only) */}
+          {model.installed && onTagsChanged && (
+            <ModelTagEditor
+              filename={model.filename}
+              tags={tags}
+              allUserTags={allUserTags}
+              onChange={onTagsChanged}
+            />
+          )}
         </div>
 
         {/* Action button */}

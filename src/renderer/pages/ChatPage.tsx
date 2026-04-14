@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 import PromptLibrary from '../components/PromptLibrary'
 import CompareView from '../components/CompareView'
+import { tagColor } from '../utils/tags'
 
 export default function ChatPage() {
   const navigate = useNavigate()
@@ -26,6 +27,7 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('')
   const [personas, setPersonas] = useState<PersonaData[]>([])
+  const [modelTagsMap, setModelTagsMap] = useState<Record<string, string[]>>({})
   const [promptLibOpen, setPromptLibOpen] = useState(false)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [exportStatus, setExportStatus] = useState('')
@@ -41,6 +43,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     window.airoost.getPersonas().then(setPersonas)
+    window.airoost.modelTagsGetAll().then(setModelTagsMap)
   }, [])
 
   useEffect(() => {
@@ -166,10 +169,31 @@ export default function ChatPage() {
           className="bg-surface-dark border border-white/10 text-white text-xs rounded-lg px-3 py-1.5 outline-none"
         >
           {noModels && <option value="">No models installed</option>}
-          {installedModels.map((m) => (
-            <option key={m.path} value={m.path}>{m.name}</option>
-          ))}
+          {installedModels.map((m) => {
+            const tags = modelTagsMap[m.path.split('/').pop() ?? ''] ?? []
+            const tagStr = tags.length > 0 ? ` \u00B7 ${tags.map((t) => '#' + t).join(' ')}` : ''
+            return <option key={m.path} value={m.path}>{m.name}{tagStr}</option>
+          })}
         </select>
+
+        {/* Tag chips for active model */}
+        {(() => {
+          const activeFilename = selectedModelPath?.split('/').pop() ?? ''
+          const activeTags = modelTagsMap[activeFilename] ?? []
+          if (activeTags.length === 0) return null
+          return (
+            <div className="flex items-center gap-1 flex-wrap">
+              {activeTags.map((t) => {
+                const c = tagColor(t)
+                return (
+                  <span key={t} className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${c.bg} ${c.text}`}>
+                    {t}
+                  </span>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {/* Persona selector */}
         <select

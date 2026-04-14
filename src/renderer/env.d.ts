@@ -52,6 +52,11 @@ interface Window {
     docChat: (modelPath: string, docText: string, docFilename: string, message: string) => Promise<string>
     hfGetToken: () => Promise<string>
     hfSetToken: (token: string) => Promise<void>
+    modelTagsGetAll: () => Promise<Record<string, string[]>>
+    modelTagsGet: (filename: string) => Promise<string[]>
+    modelTagsAdd: (filename: string, tag: string) => Promise<string[]>
+    modelTagsRemove: (filename: string, tag: string) => Promise<string[]>
+    modelTagsSummary: () => Promise<{ tag: string; count: number }[]>
     hfSearch: (query: string, limit?: number) => Promise<HFModel[]>
     hfDownload: (fileUrl: string, filename: string) => Promise<string>
     onDownloadProgress: (callback: (data: { modelId: string; percent: number; status: string }) => void) => () => void
