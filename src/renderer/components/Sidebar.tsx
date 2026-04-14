@@ -127,7 +127,7 @@ export default function Sidebar() {
       {/* App logo */}
       <div className="p-5 pb-3" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}>
         <h1 className="text-lg font-bold text-white tracking-tight pl-1">
-          <span className="text-accent">ai</span>roost
+          <span className="text-white">ai</span><span className="text-accent">roost</span>
         </h1>
         <p className="text-[10px] text-gray-600 pl-1 mt-0.5">Your AI. Your machine. Your rules.</p>
       </div>

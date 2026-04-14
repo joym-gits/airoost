@@ -161,7 +161,7 @@ function buildExportHTML(data: ExportData): string {
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; color: #222; }
     .header { border-bottom: 2px solid #e94560; padding-bottom: 16px; margin-bottom: 24px; }
-    .logo { font-size: 22px; font-weight: bold; }
+    .logo { font-size: 22px; font-weight: bold; color: #222; }
     .logo span { color: #e94560; }
     .meta { font-size: 12px; color: #888; margin-top: 8px; }
     .footer { text-align: center; font-size: 11px; color: #aaa; margin-top: 40px; padding-top: 16px; border-top: 1px solid #eee; }
@@ -169,7 +169,7 @@ function buildExportHTML(data: ExportData): string {
 </head>
 <body>
   <div class="header">
-    <div class="logo"><span>ai</span>roost</div>
+    <div class="logo">ai<span>roost</span></div>
     <h1 style="margin:8px 0 0;font-size:18px;">${escapeHTML(data.title)}</h1>
     <div class="meta">${escapeHTML(data.modelId)}${persona ? ` | ${escapeHTML(persona)}` : ''} | ${escapeHTML(date)}</div>
   </div>

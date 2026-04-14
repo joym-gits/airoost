@@ -274,7 +274,7 @@ export default function ChatPage() {
             ) : (
               <>
                 <h2 className="text-xl font-semibold text-white mb-1">
-                  <span className="text-accent">ai</span>roost
+                  <span className="text-white">ai</span><span className="text-accent">roost</span>
                 </h2>
                 <p className="text-sm text-gray-500 mb-6">AI that stays home.</p>
                 <div className="grid grid-cols-2 gap-3 max-w-sm">
