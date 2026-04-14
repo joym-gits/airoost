@@ -1,13 +1,30 @@
 import { readFileSync } from 'fs'
-import { extname, basename } from 'path'
+import { extname, basename, join } from 'path'
+import { app } from 'electron'
 
-// Dynamic imports to prevent Vite from bundling native modules
+// Dynamic imports (ASAR-aware for packaged apps)
 const _modCache: Record<string, any> = {}
-async function dynamicImport(mod: string) {
-  if (!_modCache[mod]) {
-    _modCache[mod] = await (Function('m', 'return import(m)')(mod))
+async function dynamicImport(packageName: string): Promise<any> {
+  if (_modCache[packageName]) return _modCache[packageName]
+
+  const candidates: string[] = []
+  if (app.isPackaged) {
+    const unpackedBase = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
+    candidates.push(join(unpackedBase, 'node_modules', packageName))
   }
-  return _modCache[mod]
+  candidates.push(packageName)
+
+  let lastErr: any = null
+  for (const spec of candidates) {
+    try {
+      const mod = await (Function('m', 'return import(m)')(spec))
+      _modCache[packageName] = mod
+      return mod
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr ?? new Error(`Could not load ${packageName}`)
 }
 
 export interface ParsedDocument {

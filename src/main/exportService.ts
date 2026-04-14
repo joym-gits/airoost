@@ -1,5 +1,21 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app } from 'electron'
 import { writeFileSync } from 'fs'
+import { join } from 'path'
+
+// ASAR-aware dynamic import
+async function asarAwareImport(packageName: string): Promise<any> {
+  const candidates: string[] = []
+  if (app.isPackaged) {
+    const unpackedBase = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
+    candidates.push(join(unpackedBase, 'node_modules', packageName))
+  }
+  candidates.push(packageName)
+  let lastErr: any = null
+  for (const spec of candidates) {
+    try { return await (Function('m', 'return import(m)')(spec)) } catch (err) { lastErr = err }
+  }
+  throw lastErr ?? new Error(`Could not load ${packageName}`)
+}
 
 interface ExportMessage {
   role: 'user' | 'assistant'
@@ -48,7 +64,7 @@ export async function exportToPDF(data: ExportData, savePath: string): Promise<v
  */
 export async function exportToDOCX(data: ExportData, savePath: string): Promise<void> {
   // Dynamic import to avoid Vite bundling
-  const docxMod = await (Function('m', 'return import(m)')('docx'))
+  const docxMod = await asarAwareImport('docx')
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = docxMod
 
   const children: any[] = []

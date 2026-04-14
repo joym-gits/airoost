@@ -6,6 +6,40 @@ import {
 } from 'fs'
 import { extname, basename } from 'path'
 
+// ─── Dynamic module import (ASAR-aware) ──────────────────────────
+//
+// In packaged apps, require('pkg') tries to load from inside app.asar
+// which doesn't work for native modules or binary-dependent packages.
+// These are unpacked to app.asar.unpacked/node_modules/ via electron-
+// builder's asarUnpack config. We resolve the absolute path there.
+
+const _modCache: Record<string, any> = {}
+
+async function dynamicImport(packageName: string): Promise<any> {
+  if (_modCache[packageName]) return _modCache[packageName]
+
+  // Try absolute path via app.asar.unpacked first (production)
+  // Fall back to bare specifier (dev / if already cached in Node)
+  const candidates: string[] = []
+  if (app.isPackaged) {
+    const unpackedBase = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
+    candidates.push(join(unpackedBase, 'node_modules', packageName))
+  }
+  candidates.push(packageName)
+
+  let lastErr: any = null
+  for (const spec of candidates) {
+    try {
+      const mod = await (Function('m', 'return import(m)')(spec))
+      _modCache[packageName] = mod
+      return mod
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr ?? new Error(`Could not load ${packageName}`)
+}
+
 // ─── Types ───────────────────────────────────────────────────────
 
 export interface KnowledgeBase {
@@ -87,7 +121,7 @@ async function extractText(filePath: string): Promise<string> {
   const ext = extname(filePath).toLowerCase()
   switch (ext) {
     case '.pdf': {
-      const pdfMod = await (Function('m', 'return import(m)')('pdf-parse'))
+      const pdfMod = await dynamicImport('pdf-parse')
       const PDFParse = pdfMod.PDFParse ?? pdfMod.default?.PDFParse ?? pdfMod.default
       const buffer = readFileSync(filePath)
       const parser = new PDFParse({ data: new Uint8Array(buffer) })
@@ -99,9 +133,10 @@ async function extractText(filePath: string): Promise<string> {
       }
     }
     case '.docx': {
-      const mammoth = await (Function('m', 'return import(m)')('mammoth'))
+      const mammoth = await dynamicImport('mammoth')
+      const extractFn = mammoth.extractRawText ?? mammoth.default?.extractRawText
       const buffer = readFileSync(filePath)
-      const result = await mammoth.extractRawText({ buffer })
+      const result = await extractFn({ buffer })
       return result.value ?? ''
     }
     case '.txt':
@@ -134,7 +169,7 @@ let embeddingPipeline: any = null
 
 async function getEmbeddingPipeline(): Promise<any> {
   if (embeddingPipeline) return embeddingPipeline
-  const { pipeline } = await (Function('m', 'return import(m)')('@huggingface/transformers'))
+  const { pipeline } = await dynamicImport('@huggingface/transformers')
   embeddingPipeline = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
     dtype: 'fp32'
   })

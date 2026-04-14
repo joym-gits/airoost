@@ -6,14 +6,31 @@ import os from 'os'
 import https from 'https'
 import http from 'http'
 
-// Dynamic import hidden from Vite's static analysis
+// Dynamic import hidden from Vite's static analysis.
+// ASAR-aware: in packaged apps, resolve to the absolute unpacked path so
+// Node can actually find the native binaries.
 let _llamaCppModule: any = null
 async function loadNodeLlamaCpp() {
-  if (!_llamaCppModule) {
-    const mod = ['node', 'llama', 'cpp'].join('-')
-    _llamaCppModule = await (Function('m', 'return import(m)')(mod))
+  if (_llamaCppModule) return _llamaCppModule
+
+  const pkgName = ['node', 'llama', 'cpp'].join('-')
+  const candidates: string[] = []
+  if (app.isPackaged) {
+    const unpackedBase = app.getAppPath().replace(/app\.asar$/, 'app.asar.unpacked')
+    candidates.push(join(unpackedBase, 'node_modules', pkgName))
   }
-  return _llamaCppModule
+  candidates.push(pkgName)
+
+  let lastErr: any = null
+  for (const spec of candidates) {
+    try {
+      _llamaCppModule = await (Function('m', 'return import(m)')(spec))
+      return _llamaCppModule
+    } catch (err) {
+      lastErr = err
+    }
+  }
+  throw lastErr ?? new Error('Could not load node-llama-cpp')
 }
 
 let _modelsDir: string | null = null
