@@ -86,10 +86,9 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.productivity",
       "darkModeSupport": true,
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
+      "identity": null,
       "artifactName": "${productName}-${version}-mac.${ext}"
     },
     "dmg": {
