@@ -98,6 +98,7 @@ interface KnowledgeBaseData {
   indexSizeBytes: number
   createdAt: number
   updatedAt: number
+  failedFiles?: { filename: string; reason: string }[]
 }
 
 interface KBDocumentData {

@@ -153,7 +153,7 @@ export default function KnowledgeBasePage() {
           <>
             <span className="text-[11px] text-gray-500">/</span>
             <span className="text-[11px] text-accent">{activeKB.name}</span>
-            <span className="text-[10px] text-gray-600">{activeKB.documentCount} docs \u00B7 {activeKB.chunkCount} chunks</span>
+            <span className="text-[10px] text-gray-600">{activeKB.documentCount} docs · {activeKB.chunkCount} chunks</span>
           </>
         )}
 
@@ -201,7 +201,7 @@ export default function KnowledgeBasePage() {
                   <div className="cursor-pointer flex-1" onClick={() => handleOpenKB(kb)}>
                     <h3 className="text-sm font-medium text-white">{kb.name}</h3>
                     <p className="text-[11px] text-gray-500 mt-1">
-                      {kb.documentCount} documents \u00B7 {kb.chunkCount} chunks \u00B7 {(kb.indexSizeBytes / 1e6).toFixed(1)} MB index
+                      {kb.documentCount} documents · {kb.chunkCount} chunks · {(kb.indexSizeBytes / 1e6).toFixed(1)} MB index
                     </p>
                     <p className="text-[10px] text-gray-600 mt-0.5 truncate">{kb.sourcePath}</p>
                   </div>
@@ -301,23 +301,38 @@ export default function KnowledgeBasePage() {
 
           {/* Empty KB warning */}
           {!indexing && activeKB.chunkCount === 0 && (
-            <div className="mx-5 mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-xs text-amber-400 font-medium">This knowledge base has 0 chunks</p>
-                <p className="text-[11px] text-amber-300/70 mt-0.5">
-                  Indexing may have failed. If this KB contains PDFs and was created before v1.0.1, the PDFs were silently skipped. Re-index to fix.
-                </p>
+            <div className="mx-5 mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-xs text-amber-400 font-medium">This knowledge base has 0 chunks</p>
+                  <p className="text-[11px] text-amber-300/70 mt-0.5">
+                    None of the files could be indexed. See details below.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleReindex(activeKB.id)}
+                  disabled={indexing}
+                  className="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 rounded text-xs text-black font-medium transition-colors disabled:opacity-50"
+                >
+                  {indexing ? 'Indexing...' : 'Re-index now'}
+                </button>
               </div>
-              <button
-                onClick={() => handleReindex(activeKB.id)}
-                disabled={indexing}
-                className="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 rounded text-xs text-black font-medium transition-colors disabled:opacity-50"
-              >
-                {indexing ? 'Indexing...' : 'Re-index now'}
-              </button>
+
+              {/* Failed files list */}
+              {activeKB.failedFiles && activeKB.failedFiles.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-amber-500/20 space-y-1.5">
+                  <p className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold">Failed files ({activeKB.failedFiles.length})</p>
+                  {activeKB.failedFiles.map((f, i) => (
+                    <div key={i} className="text-[11px]">
+                      <span className="text-amber-300 font-mono">{f.filename}</span>
+                      <span className="text-amber-300/60"> — {f.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -347,7 +362,7 @@ export default function KnowledgeBasePage() {
             {messages.length === 0 && !generating && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <p className="text-sm text-gray-400 mb-2">Ask anything about <span className="text-accent">{activeKB.name}</span></p>
-                <p className="text-xs text-gray-600">{activeKB.documentCount} documents indexed \u00B7 {activeKB.chunkCount} chunks</p>
+                <p className="text-xs text-gray-600">{activeKB.documentCount} documents indexed · {activeKB.chunkCount} chunks</p>
               </div>
             )}
 

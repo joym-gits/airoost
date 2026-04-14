@@ -180,8 +180,8 @@ export default function ModelLibraryPage() {
         <h1 className="text-2xl font-bold text-white">Model Library</h1>
         <p className="text-xs text-gray-500 mt-1">
           {installedModels.length} model{installedModels.length !== 1 ? 's' : ''} installed
-          {hardware && <span> \u00B7 {hardware.totalRamGB} GB RAM \u00B7 {hardware.gpuName}</span>}
-          {activeTagFilter && <span className="text-accent"> \u00B7 filtered by #{activeTagFilter}</span>}
+          {hardware && <span> · {hardware.totalRamGB} GB RAM · {hardware.gpuName}</span>}
+          {activeTagFilter && <span className="text-accent"> · filtered by #{activeTagFilter}</span>}
         </p>
       </div>
 
@@ -391,7 +391,7 @@ function ExploreTab({
       {/* Footer */}
       {!hf.loading && hf.results.length > 0 && (
         <p className="text-center text-[11px] text-gray-600 mt-6">
-          Showing {hf.results.length} GGUF models from Hugging Face \u00B7 Sorted by downloads
+          Showing {hf.results.length} GGUF models from Hugging Face · Sorted by downloads
         </p>
       )}
     </div>
@@ -443,17 +443,17 @@ function HFModelCard({
 
           <div className="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
             <span>{formatBytes(model.totalSizeBytes)}</span>
-            <span>\u00B7</span>
+            <span>·</span>
             <span>{formatDownloads(model.downloads)} downloads</span>
-            <span>\u00B7</span>
+            <span>·</span>
             <span>{model.likes} likes</span>
             {model.pipelineTag && (
               <>
-                <span>\u00B7</span>
+                <span>·</span>
                 <span className="text-gray-600">{model.pipelineTag}</span>
               </>
             )}
-            <span>\u00B7</span>
+            <span>·</span>
             <span className={
               compat.status === 'smooth' ? 'text-green-500' :
               compat.status === 'slow' ? 'text-yellow-500' :
@@ -590,9 +590,9 @@ function ModelCard({
           <p className="text-xs text-gray-500 mb-2">{model.description}</p>
           <div className="flex items-center gap-3 text-[11px] text-gray-600">
             <span>{model.size}</span>
-            <span>\u00B7</span>
+            <span>·</span>
             <span>Needs {model.ramRequired}+ GB RAM</span>
-            <span>\u00B7</span>
+            <span>·</span>
             {/* Compatibility indicator */}
             <span className={
               compat.status === 'smooth' ? 'text-green-500' :

@@ -17,6 +17,7 @@ export interface KnowledgeBase {
   indexSizeBytes: number
   createdAt: number
   updatedAt: number
+  failedFiles?: { filename: string; reason: string }[]
 }
 
 export interface KBDocument {
@@ -194,15 +195,21 @@ export async function createKnowledgeBase(
   // Find all supported files
   const files = findFiles(sourcePath)
   const allEntries: VectorEntry[] = []
+  const failedFiles: { filename: string; reason: string }[] = []
   let totalChunks = 0
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
-    onProgress(i, files.length, basename(file))
+    const filename = basename(file)
+    onProgress(i, files.length, filename)
 
     try {
       const text = await extractText(file)
-      if (!text.trim()) continue
+      if (!text.trim()) {
+        failedFiles.push({ filename, reason: 'No text could be extracted (file may be empty, image-only PDF, or protected)' })
+        console.warn(`RAG: no text extracted from ${file}`)
+        continue
+      }
 
       const chunks = chunkText(text)
       for (let ci = 0; ci < chunks.length; ci++) {
@@ -210,12 +217,15 @@ export async function createKnowledgeBase(
         allEntries.push({
           vector,
           text: chunks[ci],
-          meta: { source: basename(file), chunkIndex: ci, totalChunks: chunks.length }
+          meta: { source: filename, chunkIndex: ci, totalChunks: chunks.length }
         })
         totalChunks++
       }
-    } catch (err) {
-      console.error(`RAG: failed to index ${file}:`, err)
+      console.log(`RAG: indexed ${filename} (${chunks.length} chunks)`)
+    } catch (err: any) {
+      const reason = err?.message ?? String(err)
+      failedFiles.push({ filename, reason })
+      console.error(`RAG: failed to index ${file}:`, reason)
     }
   }
 
@@ -235,8 +245,11 @@ export async function createKnowledgeBase(
     chunkCount: totalChunks,
     indexSizeBytes: indexSize,
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    failedFiles
   }
+
+  console.log(`RAG: created KB "${name}" — ${totalChunks} chunks from ${files.length - failedFiles.length}/${files.length} files. Failed: ${failedFiles.length}`)
 
   const registry = loadKBRegistry()
   registry.push(kb)
@@ -347,15 +360,21 @@ export async function reindexKnowledgeBase(
   // Re-index from source path
   const files = findFiles(kb.sourcePath)
   const allEntries: VectorEntry[] = []
+  const failedFiles: { filename: string; reason: string }[] = []
   let totalChunks = 0
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
-    onProgress(i, files.length, basename(file))
+    const filename = basename(file)
+    onProgress(i, files.length, filename)
 
     try {
       const text = await extractText(file)
-      if (!text.trim()) continue
+      if (!text.trim()) {
+        failedFiles.push({ filename, reason: 'No text could be extracted (file may be empty, image-only PDF, or protected)' })
+        console.warn(`RAG: no text extracted from ${file}`)
+        continue
+      }
 
       const chunks = chunkText(text)
       for (let ci = 0; ci < chunks.length; ci++) {
@@ -363,16 +382,20 @@ export async function reindexKnowledgeBase(
         allEntries.push({
           vector,
           text: chunks[ci],
-          meta: { source: basename(file), chunkIndex: ci, totalChunks: chunks.length }
+          meta: { source: filename, chunkIndex: ci, totalChunks: chunks.length }
         })
         totalChunks++
       }
-    } catch {
-      // Skip failed files
+      console.log(`RAG: re-indexed ${filename} (${chunks.length} chunks)`)
+    } catch (err: any) {
+      const reason = err?.message ?? String(err)
+      failedFiles.push({ filename, reason })
+      console.error(`RAG: failed to re-index ${file}:`, reason)
     }
   }
 
   onProgress(files.length, files.length, 'Done')
+  console.log(`RAG: re-indexed KB — ${totalChunks} chunks from ${files.length - failedFiles.length}/${files.length} files`)
   saveVectorStore(kbId, allEntries)
 
   const indexSize = existsSync(getVectorStorePath(kbId))
@@ -387,6 +410,7 @@ export async function reindexKnowledgeBase(
     registry[idx].chunkCount = totalChunks
     registry[idx].indexSizeBytes = indexSize
     registry[idx].updatedAt = Date.now()
+    registry[idx].failedFiles = failedFiles
     saveKBRegistry(registry)
     return registry[idx]
   }
