@@ -1,6 +1,6 @@
 {
   "name": "airoost",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "VLC for AI models — download and run open-source AI models locally with zero setup",
   "main": "out/main/index.js",
   "author": {

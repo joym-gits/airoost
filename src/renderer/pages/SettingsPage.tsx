@@ -289,7 +289,7 @@ export default function SettingsPage() {
 
         {/* ── About ── */}
         <Section title="About">
-          <Row label="Airoost" value="v1.0.0" />
+          <Row label="Airoost" value="v1.0.1" />
           <Row label="Engine" value="llama.cpp via node-llama-cpp" />
           <Row label="Runtime" value="Electron 37 + React 18" />
           <Row label="Embeddings" value="all-MiniLM-L6-v2" />
