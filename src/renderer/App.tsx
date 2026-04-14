@@ -9,6 +9,7 @@ import VoicePage from './pages/VoicePage'
 import PersonasPage from './pages/PersonasPage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
 import DashboardPage from './pages/DashboardPage'
+import PromptCoachPage from './pages/PromptCoachPage'
 import OnboardingTour from './components/OnboardingTour'
 import ShortcutsModal from './components/ShortcutsModal'
 import UpdateBanner from './components/UpdateBanner'
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/personas" element={<PersonasPage />} />
           <Route path="/knowledge" element={<KnowledgeBasePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/coach" element={<PromptCoachPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
