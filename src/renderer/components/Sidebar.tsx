@@ -378,7 +378,7 @@ export default function Sidebar() {
             {selectedModelName ?? 'No model loaded'}
           </span>
         </div>
-        <div className="text-[10px] text-gray-700 mt-1">v1.0.1</div>
+        <div className="text-[10px] text-gray-700 mt-1">v1.1.0</div>
       </div>
 
       {/* Context Menu */}
