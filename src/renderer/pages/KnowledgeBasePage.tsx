@@ -124,8 +124,14 @@ export default function KnowledgeBasePage() {
     setIndexProgress({ processed: 0, total: 0, currentFile: 'Starting...' })
     const cleanup = window.airoost.onKBIndexProgress(setIndexProgress)
     try {
-      await window.airoost.kbReindex(id)
+      const updated = await window.airoost.kbReindex(id)
       await fetchKBs()
+      // If we're currently viewing this KB's chat, refresh its state and docs
+      if (activeKB?.id === id && updated) {
+        setActiveKB(updated)
+        const docs = await window.airoost.kbGetDocs(id)
+        setKbDocs(docs)
+      }
     } finally {
       cleanup()
       setIndexing(false)
@@ -276,13 +282,64 @@ export default function KnowledgeBasePage() {
       {/* ── Chat View ── */}
       {view === 'chat' && activeKB && (
         <>
+          {/* Indexing progress (shown when re-indexing from chat view) */}
+          {indexing && (
+            <div className="mx-5 mt-3 p-3 rounded-lg bg-surface border border-white/5">
+              <div className="flex justify-between mb-2">
+                <span className="text-xs text-gray-400">Indexing...</span>
+                <span className="text-xs text-white">{indexProgress.processed} / {indexProgress.total}</span>
+              </div>
+              <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-1">
+                <div
+                  className="h-full bg-accent rounded-full transition-all"
+                  style={{ width: `${indexProgress.total > 0 ? (indexProgress.processed / indexProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-500 truncate">{indexProgress.currentFile}</p>
+            </div>
+          )}
+
+          {/* Empty KB warning */}
+          {!indexing && activeKB.chunkCount === 0 && (
+            <div className="mx-5 mt-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+              <svg className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-xs text-amber-400 font-medium">This knowledge base has 0 chunks</p>
+                <p className="text-[11px] text-amber-300/70 mt-0.5">
+                  Indexing may have failed. If this KB contains PDFs and was created before v1.0.1, the PDFs were silently skipped. Re-index to fix.
+                </p>
+              </div>
+              <button
+                onClick={() => handleReindex(activeKB.id)}
+                disabled={indexing}
+                className="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 rounded text-xs text-black font-medium transition-colors disabled:opacity-50"
+              >
+                {indexing ? 'Indexing...' : 'Re-index now'}
+              </button>
+            </div>
+          )}
+
           {/* Documents panel (collapsible) */}
-          <div className="px-5 py-2 border-b border-white/5 flex gap-2 overflow-x-auto">
+          <div className="px-5 py-2 border-b border-white/5 flex items-center gap-2 overflow-x-auto">
             {kbDocs.map((doc) => (
               <span key={doc.filename} className="shrink-0 text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded">
                 {doc.filename} ({doc.chunkCount} chunks)
               </span>
             ))}
+            {kbDocs.length === 0 && activeKB.chunkCount === 0 && (
+              <span className="text-[10px] text-gray-600">No indexed content yet</span>
+            )}
+            {/* Always-visible re-index shortcut */}
+            <button
+              onClick={() => handleReindex(activeKB.id)}
+              disabled={indexing}
+              className="ml-auto shrink-0 text-[10px] text-gray-500 hover:text-accent px-2 py-1 rounded bg-white/5 transition-colors disabled:opacity-50"
+              title="Re-scan the source folder and rebuild the index"
+            >
+              {indexing ? 'Indexing...' : 'Re-index'}
+            </button>
           </div>
 
           {/* Messages */}

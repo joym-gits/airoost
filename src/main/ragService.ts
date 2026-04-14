@@ -296,17 +296,21 @@ export function buildRAGContext(results: KBSearchResult[]): string {
   if (results.length === 0) return ''
 
   const sections = results.map((r, i) =>
-    `[Source ${i + 1}: ${r.source}]\n${r.text}`
+    `[Excerpt ${i + 1} — from "${r.source}"]\n${r.text}`
   )
 
   return [
-    'Use the following knowledge base excerpts to answer the question.',
-    'Cite the source document when referencing information.',
-    'If the answer is not in the excerpts, say so clearly.',
+    'You are a knowledge base assistant. You have been given excerpts from the user\'s documents below. Your job is to answer the user\'s question using ONLY the information in these excerpts.',
     '',
-    '--- KNOWLEDGE BASE EXCERPTS ---',
+    'Rules:',
+    '1. Base your answer primarily on the excerpts provided.',
+    '2. When referencing information, mention which document it came from (e.g., "According to [filename]...").',
+    '3. If the excerpts do not contain enough information to answer, say so honestly. Do not make up information.',
+    '4. Be specific and quote relevant passages when helpful.',
+    '',
+    '=== KNOWLEDGE BASE EXCERPTS ===',
     ...sections,
-    '--- END EXCERPTS ---'
+    '=== END OF EXCERPTS ==='
   ].join('\n')
 }
 

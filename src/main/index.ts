@@ -270,15 +270,29 @@ ipcMain.handle('kb:search', async (_e, kbId: string, query: string) => {
 })
 
 ipcMain.handle('kb:chat', async (event, modelPath: string, kbId: string, message: string) => {
-  const results = await searchKnowledgeBase(kbId, message, 5)
-  const context = buildRAGContext(results)
+  try {
+    console.log('KB chat:', { kbId, query: message.slice(0, 60) })
+    const results = await searchKnowledgeBase(kbId, message, 5)
+    console.log(`KB search returned ${results.length} chunks. Top score: ${results[0]?.score?.toFixed(3) ?? 'n/a'}`)
 
-  let full = ''
-  const response = await chatWithContext(modelPath, context, message, (token) => {
-    full += token
-    event.sender.send('llm:chat-token', { token, partial: full })
-  })
-  return { response, sources: results }
+    if (results.length === 0) {
+      return {
+        response: 'I couldn\'t find anything in this knowledge base. It may be empty or the indexing may have failed. Try re-indexing it from the knowledge base list — especially if it contains PDFs (older versions of Airoost had a PDF extraction bug that silently skipped them).',
+        sources: []
+      }
+    }
+
+    const context = buildRAGContext(results)
+    let full = ''
+    const response = await chatWithContext(modelPath, context, message, (token) => {
+      full += token
+      event.sender.send('llm:chat-token', { token, partial: full })
+    })
+    return { response, sources: results }
+  } catch (err: any) {
+    console.error('KB chat error:', err)
+    throw new Error(err?.message ?? 'Knowledge base chat failed')
+  }
 })
 
 ipcMain.handle('kb:select-folder', async () => {
